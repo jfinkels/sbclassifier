@@ -1,6 +1,6 @@
-from spambayes.classifier import Classifier
-from spambayes.classifier import HAM_CUTOFF
-from spambayes.classifier import SPAM_CUTOFF
+from sbclassifier import Classifier
+from sbclassifier import HAM_CUTOFF
+from sbclassifier import SPAM_CUTOFF
 
 def test_classifier():
     classifier = Classifier()
