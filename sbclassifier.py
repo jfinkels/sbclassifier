@@ -47,7 +47,6 @@ import pickle as pickle
 # XXX PyChecker over the code.
 import re
 import os
-import sys
 import socket
 try:
     import urllib.request as request
@@ -238,7 +237,7 @@ def chi2Q(x2, v, exp=math.exp, min=min):
     # XXX If x2 is very large, exp(-m) will underflow to 0.
     m = x2 / 2.0
     sum = term = exp(-m)
-    for i in range(1, v//2):
+    for i in range(1, v // 2):
         term *= m / i
         sum += term
     # With small x2 and large v, accumulated roundoff error, plus error in
@@ -257,6 +256,7 @@ def pickle_read(filename):
     finally:
         lock.release()
 
+
 def pickle_write(filename, value, protocol=0):
     '''Store value as a pickle without creating corruption'''
 
@@ -267,14 +267,14 @@ def pickle_write(filename, value, protocol=0):
         # Be as defensive as possible.  Always keep a safe copy.
         tmp = filename + '.tmp'
         fp = None
-        try: 
-            fp = open(tmp, 'wb') 
-            pickle.dump(value, fp, protocol) 
-            fp.close() 
+        try:
+            fp = open(tmp, 'wb')
+            pickle.dump(value, fp, protocol)
+            fp.close()
         except IOError as e:
             logging.warning('Failed update: %s', e)
-            if fp is not None: 
-                os.remove(tmp) 
+            if fp is not None:
+                os.remove(tmp)
             raise
         try:
             # With *nix we can just rename, and (as long as permissions
@@ -410,8 +410,8 @@ class Classifier:
 
         n = len(clues)
         if n:
-            S = 1.0 - chi2Q(-2.0 * S, 2*n)
-            H = 1.0 - chi2Q(-2.0 * H, 2*n)
+            S = 1.0 - chi2Q(-2.0 * S, 2 * n)
+            H = 1.0 - chi2Q(-2.0 * H, 2 * n)
 
             # How to combine these into a single spam score?  We originally
             # used (S-H)/(S+H) scaled into [0., 1.], which equals S/(S+H).  A
@@ -420,7 +420,7 @@ class Classifier:
             # that H was much smaller.
             # Rob Hooft stared at these problems and invented the measure
             # we use now, the simpler S-H, scaled into [0., 1.].
-            prob = (S-H + 1.0) / 2.0
+            prob = (S - H + 1.0) / 2.0
         else:
             prob = 0.5
 
@@ -663,7 +663,7 @@ class Classifier:
                     # _enhance_wordstream().
                     pair = "bi:%s %s" % (last_token, token)
                 last_token = token
-                for clue, indices in (token, (i,)), (pair, (i-1, i)):
+                for clue, indices in (token, (i,)), (pair, (i - 1, i)):
                     if clue not in seen:    # as always, skip duplicates
                         seen[clue] = 1
                         tup = self._worddistanceget(clue)
@@ -794,7 +794,7 @@ class Classifier:
         request.install_opener(opener)
 
         # Setup the cache for retrieved urls
-        age = X_CACHE_EXPIRY_DAYS*24*60*60
+        age = X_CACHE_EXPIRY_DAYS * 24 * 60 * 60
         dir = X_CACHE_DIRECTORY
         if not os.path.exists(dir):
             # Create the directory.
