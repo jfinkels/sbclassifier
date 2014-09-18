@@ -36,7 +36,6 @@ This implementation is due to Tim Peters et alia.
 """
 import logging
 import math
-import pickle as pickle
 
 # XXX At time of writing, these are only necessary for the
 # XXX experimental url retrieving/slurping code.  If that
@@ -58,7 +57,8 @@ HTTP_ERROR_RE = re.compile(r"HTTP Error ([\d]+)")
 URL_KEY_RE = re.compile(r"[\W]")
 # XXX ---- ends ----
 
-import lockfile
+from sbclassifier.safepickle import pickle_read
+from sbclassifier.safepickle import pickle_write
 
 LN2 = math.log(2)       # used frequently by chi-combining
 
@@ -242,52 +242,6 @@ def chi2Q(x2, v, exp=math.exp, min=min):
     # example, chi2Q(100, 300) on my box has sum == 1.0 + 2.0**-52 at this
     # point.  Returning a value even a teensy bit over 1.0 is no good.
     return min(sum, 1.0)
-
-
-def pickle_read(filename):
-    """Read pickle file contents with a lock."""
-    lock = lockfile.FileLock(filename)
-    lock.acquire(timeout=20)
-    try:
-        return pickle.load(open(filename, 'rb'))
-    finally:
-        lock.release()
-
-
-def pickle_write(filename, value, protocol=0):
-    '''Store value as a pickle without creating corruption'''
-
-    lock = lockfile.FileLock(filename)
-    lock.acquire(timeout=20)
-
-    try:
-        # Be as defensive as possible.  Always keep a safe copy.
-        tmp = filename + '.tmp'
-        fp = None
-        try:
-            fp = open(tmp, 'wb')
-            pickle.dump(value, fp, protocol)
-            fp.close()
-        except IOError as e:
-            logging.warning('Failed update: %s', e)
-            if fp is not None:
-                os.remove(tmp)
-            raise
-        try:
-            # With *nix we can just rename, and (as long as permissions
-            # are correct) the old file will vanish.  With win32, this
-            # won't work - the Python help says that there may not be
-            # a way to do an atomic replace, so we rename the old one,
-            # put the new one there, and then delete the old one.  If
-            # something goes wrong, there is at least a copy of the old
-            # one.
-            os.rename(tmp, filename)
-        except OSError:
-            os.rename(filename, filename + '.bak')
-            os.rename(tmp, filename)
-            os.remove(filename + '.bak')
-    finally:
-        lock.release()
 
 
 class WordInfo(object):
