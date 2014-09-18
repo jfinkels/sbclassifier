@@ -37,9 +37,9 @@
 #
 # This implementation is due to Tim Peters et alia.
 
-
+import logging
 import math
-import cPickle as pickle
+import pickle as pickle
 
 # XXX At time of writing, these are only necessary for the
 # XXX experimental url retrieving/slurping code.  If that
@@ -49,7 +49,12 @@ import re
 import os
 import sys
 import socket
-import urllib2
+try:
+    import urllib.request as request
+    from urllib.error import URLError
+except ImportError:
+    import urllib2 as request
+    from urllib2 import URLError
 from email import message_from_string
 
 DOMAIN_AND_PORT_RE = re.compile(r"([^:/\\]+)(:([\d]+))?")
@@ -266,9 +271,8 @@ def pickle_write(filename, value, protocol=0):
             fp = open(tmp, 'wb') 
             pickle.dump(value, fp, protocol) 
             fp.close() 
-        except IOError, e: 
-            if VERBOSE:
-                print >> sys.stderr, 'Failed update: ' + str(e)
+        except IOError as e:
+            logging.warning('Failed update: %s', e)
             if fp is not None: 
                 os.remove(tmp) 
             raise
@@ -777,26 +781,24 @@ class Classifier:
             port = 8080
         if server:
             # Build a new opener that uses a proxy requiring authorization
-            proxy_support = urllib2.ProxyHandler({"http":
-                                                  "http://%s:%s@%s:%d" %
+            proxy_support = request.ProxyHandler({"http":
+                                                      "http://%s:%s@%s:%d" %
                                                   (username, password,
                                                    server, port)})
-            opener = urllib2.build_opener(proxy_support,
-                                          urllib2.HTTPHandler)
+            opener = request.build_opener(proxy_support, request.HTTPHandler)
         else:
             # Build a new opener without any proxy information.
-            opener = urllib2.build_opener(urllib2.HTTPHandler)
+            opener = request.build_opener(request.HTTPHandler)
 
         # Install it
-        urllib2.install_opener(opener)
+        request.install_opener(opener)
 
         # Setup the cache for retrieved urls
         age = X_CACHE_EXPIRY_DAYS*24*60*60
         dir = X_CACHE_DIRECTORY
         if not os.path.exists(dir):
             # Create the directory.
-            if VERBOSE:
-                print >> sys.stderr, "Creating URL cache directory"
+            logging.debug("Creating URL cache directory")
             os.makedirs(dir)
 
         self.urlCorpus = ExpiryFileCorpus(age, FileMessageFactory(),
@@ -813,14 +815,12 @@ class Classifier:
             except (IOError, ValueError):
                 # Something went wrong loading it (bad pickle,
                 # probably).  Start afresh.
-                if VERBOSE:
-                    print >> sys.stderr, "Bad URL pickle, using new."
+                logging.warning("Bad URL pickle, using new.")
                 self.bad_urls = {"url:non_resolving": (),
                                  "url:non_html": (),
                                  "url:unknown_error": ()}
         else:
-            if VERBOSE:
-                print "URL caches don't exist: creating"
+            logging.debug("URL caches don't exist: creating")
             self.bad_urls = {"url:non_resolving": (),
                              "url:non_html": (),
                              "url:unknown_error": ()}
@@ -830,8 +830,7 @@ class Classifier:
             except (IOError, ValueError):
                 # Something went wrong loading it (bad pickle,
                 # probably).  Start afresh.
-                if VERBOSE:
-                    print >> sys.stderr, "Bad HHTP error pickle, using new."
+                logging.debug("Bad HHTP error pickle, using new.")
                 self.http_error_urls = {}
         else:
             self.http_error_urls = {}
@@ -870,7 +869,7 @@ class Classifier:
             url = self._base_url(url)
 
         # Check the unretrievable caches
-        for err in self.bad_urls.keys():
+        for err in list(self.bad_urls.keys()):
             if url in self.bad_urls[err]:
                 return [err]
         if url in self.http_error_urls:
@@ -913,10 +912,9 @@ class Classifier:
                 # Probably Python 2.2.
                 pass
             try:
-                if VERBOSE:
-                    print >> sys.stderr, "Slurping", url
-                f = urllib2.urlopen("%s://%s" % (proto, url))
-            except (urllib2.URLError, socket.error), details:
+                logging.debug("Slurping %s", url)
+                f = request.urlopen("%s://%s" % (proto, url))
+            except (URLError, socket.error) as details:
                 mo = HTTP_ERROR_RE.match(str(details))
                 if mo:
                     self.http_error_urls[url] = "url:http_" + mo.group(1)
@@ -1004,7 +1002,7 @@ class Classifier:
             yield token
 
     def _wordinfokeys(self):
-        return self.wordinfo.keys()
+        return list(self.wordinfo.keys())
 
 
 Bayes = Classifier
