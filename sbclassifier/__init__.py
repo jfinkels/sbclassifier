@@ -1,1 +1,2 @@
-from .classifier import Classifier
+from .classifiers import Classifier
+from .classifiers import SlurpingClassifier

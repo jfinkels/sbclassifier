@@ -1,6 +1,6 @@
 from sbclassifier import Classifier
-from sbclassifier.classifier import HAM_CUTOFF
-from sbclassifier.classifier import SPAM_CUTOFF
+from sbclassifier.classifiers.constants import HAM_CUTOFF
+from sbclassifier.classifiers.constants import SPAM_CUTOFF
 
 def test_classifier():
     classifier = Classifier()
