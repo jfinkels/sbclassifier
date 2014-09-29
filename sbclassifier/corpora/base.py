@@ -241,12 +241,14 @@ class ExpiryCorpus:
             return
 
         self.expiry_due = time.time() + self.expireBefore
-        for key in self.keys()[:]:
+        # Iterate over a copy of the list because the keys will be modified
+        # during the loop.
+        for key in list(self.keys()):
             msg = self[key]
             timestamp = msg.createTimestamp()
             if timestamp < time.time() - self.expireBefore:
                 logging.debug('message %s has expired', msg.key())
-                from spambayes.storage import NO_TRAINING_FLAG
+                from sbclassifier.storage import NO_TRAINING_FLAG
                 self.removeMessage(msg, observer_flags=NO_TRAINING_FLAG)
             elif timestamp + self.expireBefore < self.expiry_due:
                 self.expiry_due = timestamp + self.expireBefore

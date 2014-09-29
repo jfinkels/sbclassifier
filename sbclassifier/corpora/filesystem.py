@@ -215,18 +215,19 @@ class FileMessage(object):
 
         fp = gzip.open(pn, 'rb')
         try:
-            self._msg = email.message_from_string(
-                fp.read(), _class=self.message_class)
+            self._msg = email.message_from_bytes(fp.read(),
+                                                  _class=self.message_class)
         except IOError as e:
             if str(e) == 'Not a gzipped file' or \
                str(e) == 'Unknown compression method':
                 # We've probably got both gzipped messages and
                 # non-gzipped messages, and need to work with both.
                 fp.close()
-                fp = open(self.pathname(), 'rb')
-                self._msg = email.message_from_string(
-                    fp.read(), _class=self.message_class)
-                fp.close()
+                # TODO this used to open the file in binary mode
+                #with open(self.pathname(), 'rb') as fp:
+                with open(self.pathname()) as fp:
+                    self._msg = email.message_from_string(
+                        fp.read(), _class=self.message_class)
             else:
                 # Don't shadow other errors.
                 raise
@@ -242,9 +243,8 @@ class FileMessage(object):
 
         logging.debug('storing %s', self.file_name)
 
-        fp = open(self.pathname(), 'wb')
-        fp.write(self.as_string())
-        fp.close()
+        with open(self.pathname(), 'wb') as fp:
+            fp.write(bytes(self.as_string(), 'utf-8'))
 
     def remove(self):
         '''Message hara-kiri'''
@@ -333,10 +333,9 @@ class GzipFileMessage(FileMessage):
         logging.debug('storing %s', self.file_name)
 
         pn = self.pathname()
-        gz = gzip.open(pn, 'wb')
-        gz.write(self.as_string())
-        gz.flush()
-        gz.close()
+        with gzip.open(pn, 'wb') as gz:
+            gz.write(bytes(self.as_string(), 'utf-8'))
+            gz.flush()
 
 
 class GzipFileMessageFactory(MessageFactory):

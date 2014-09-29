@@ -540,7 +540,7 @@ class Message(email.message.Message):
         # append function), but does not, so we do it here
         try:
             fp = StringIO()
-            g = email.Generator.Generator(fp, mangle_from_=mangle_from_)
+            g = email.generator.Generator(fp, mangle_from_=mangle_from_)
             g.flatten(self, unixfrom)
             return self._force_CRLF(fp.getvalue())
         except TypeError:
@@ -655,7 +655,7 @@ class SBHeaderMessage(Message):
             for word, score in clues:
                 if word in ('*H*', '*S*') or score <= hco or score >= sco:
                     if isinstance(word, types.UnicodeType):
-                        word = email.Header.Header(word,
+                        word = email.header.Header(word,
                                                    charset='utf-8').encode()
                     try:
                         evd.append("%r: %.2f" % (word, score))
@@ -813,7 +813,7 @@ def insert_exception_header(string_msg, msg_id=None):
     detailLines = details.strip().split('\n')
     dottedDetails = '\n.'.join(detailLines)
     headerName = 'X-Spambayes-Exception'
-    header = email.Header.Header(dottedDetails, header_name=headerName)
+    header = email.header.Header(dottedDetails, header_name=headerName)
 
     # Insert the exception header, and optionally also insert the id header,
     # otherwise we might keep doing this message over and over again.
