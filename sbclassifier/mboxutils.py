@@ -26,6 +26,7 @@ import glob
 import email
 import mailbox
 import email.message
+import email.errors
 import re
 import traceback
 
@@ -176,20 +177,20 @@ def get_message(obj):
     shouldn't matter.
     """
 
-    if isinstance(obj, email.Message.Message):
+    if isinstance(obj, email.message.Message):
         return obj
     # Create an email Message object.
     if hasattr(obj, "read"):
         obj = obj.read()
     try:
         msg = email.message_from_string(obj)
-    except email.Errors.MessageParseError:
+    except email.errors.MessageParseError:
         # Wrap the raw text in a bare Message object.  Since the
         # headers are most likely damaged, we can't use the email
         # package to parse them, so just get rid of them first.
         headers = extract_headers(obj)
         obj = obj[len(headers):]
-        msg = email.Message.Message()
+        msg = email.message.Message()
         msg.set_payload(obj)
     return msg
 
@@ -201,7 +202,7 @@ def as_string(msg, unixfrom=False):
     TypeError for some malformed messages.  This catches that and attempts
     to return something approximating the original message.
 
-    To Do: This really should be done by subclassing email.Message.Message
+    To Do: This really should be done by subclassing email.message.Message
     and making this function the as_string() method.  After 1.0.
 
     [Tony] Better: sb_filter & sb_mboxtrain should stop using this and
