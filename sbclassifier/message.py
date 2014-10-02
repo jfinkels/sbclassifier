@@ -68,6 +68,7 @@ To Do:
 __author__ = "Tim Stone <tim@fourstonesExpressions.com>"
 __credits__ = "Mark Hammond, Tony Meyer, all the spambayes contributors."
 
+import dbm
 import logging
 import sys
 import types
@@ -86,7 +87,6 @@ import email.header
 import email.generator
 
 from sbclassifier import storage
-from sbclassifier import dbmstorage
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
 from sbclassifier.tokenizer import tokenize
@@ -218,7 +218,7 @@ class MessageInfoBase(object):
         self.db_name = db_name
 
     def __len__(self):
-        return len(self.keys())
+        return len(list(self.keys()))
 
     def get_statistics_start_date(self):
         if STATS_START_KEY in self.db:
@@ -267,21 +267,21 @@ class MessageInfoBase(object):
                     if not hasattr(msg, att):
                         setattr(msg, att, None)
             else:
-                if not isinstance(attributes, types.ListType):
+                if not isinstance(attributes, list):
                     # Old-style message info db
-                    if isinstance(attributes, types.TupleType):
+                    if isinstance(attributes, tuple):
                         # sb_server/sb_imapfilter, which only handled
                         # storing 'c' and 't'.
                         (msg.c, msg.t) = attributes
                         return
-                    elif isinstance(attributes, types.StringTypes):
+                    elif isinstance(attributes, str):
                         # Outlook plug-in, which only handled storing 't',
                         # and did it as a string.
                         msg.t = {"0": False, "1": True}[attributes]
                         return
                     else:
-                        print >> sys.stderr, "Unknown message info type", \
-                            attributes
+                        logging.error("Unknown message info type: {}",
+                                      attributes)
                         sys.exit(1)
                 for att, val in attributes:
                     setattr(msg, att, val)
@@ -303,7 +303,7 @@ class MessageInfoBase(object):
             self.store()
 
     def keys(self):
-        return self.db.keys()
+        return list(self.db.keys())
 
 
 class MessageInfoPickle(MessageInfoBase):
@@ -338,9 +338,9 @@ class MessageInfoDB(MessageInfoBase):
 
     def load(self):
         try:
-            self.dbm = dbmstorage.open(self.db_name, self.mode)
+            self.dbm = dbm.open(self.db_name, self.mode)
             self.db = shelve.Shelf(self.dbm)
-        except dbmstorage.error:
+        except dbm.error:
             # This probably means that we don't have a dbm module
             # available.  Print out a warning, and continue on
             # (not persisting any of this data).
@@ -424,7 +424,7 @@ def database_type():
     # so we try and be more robust.  If we can't use the same storage
     # method, then we fall back to pickle.
     nm, typ = storage.database_type((), default_name=dn)
-    if typ not in _storage_types.keys():
+    if typ not in list(_storage_types.keys()):
         typ = "pickle"
     return nm, typ
 
@@ -510,7 +510,7 @@ class Message(email.message.Message):
         if id is None:
             raise ValueError("MsgId must not be None")
 
-        if not type(id) in types.StringTypes:
+        if not type(id) in str:
             raise TypeError("Id must be a string")
 
         if id == STATS_START_KEY:
@@ -654,7 +654,7 @@ class SBHeaderMessage(Message):
             evd = []
             for word, score in clues:
                 if word in ('*H*', '*S*') or score <= hco or score >= sco:
-                    if isinstance(word, types.UnicodeType):
+                    if isinstance(word, str):
                         word = email.header.Header(word,
                                                    charset='utf-8').encode()
                     try:
@@ -668,7 +668,7 @@ class SBHeaderMessage(Message):
             wrappedEvd = []
             headerName = EVIDENCE_HEADER_NAME
             lineLength = len(headerName) + len(': ')
-            for component, index in zip(evd, range(len(evd))):
+            for component, index in zip(evd, list(range(len(evd)))):
                 wrappedEvd.append(component)
                 lineLength += len(component)
                 if index < len(evd)-1:
@@ -699,7 +699,7 @@ class SBHeaderMessage(Message):
         # something that could be a string or a tuple works fine, but
         # it dies in Python 2.2, because you can't do 'string in string',
         # only 'character in string', so we allow for that.
-        if isinstance(NOTATE_TO, types.StringTypes):
+        if isinstance(NOTATE_TO, str):
             notate_to = (NOTATE_TO,)
         else:
             notate_to = NOTATE_TO
@@ -715,7 +715,7 @@ class SBHeaderMessage(Message):
             except KeyError:
                 self["To"] = address
 
-        if isinstance(NOTATE_SUBJECT, types.StringTypes):
+        if isinstance(NOTATE_SUBJECT, str):
             notate_subject = (NOTATE_SUBJECT,)
         else:
             notate_subject = NOTATE_SUBJECT
@@ -805,7 +805,7 @@ def insert_exception_header(string_msg, msg_id=None):
 
     Returns a tuple of the new message text and the exception details."""
     stream = StringIO()
-    traceback.print_exc(None, stream)
+    traceback.print_exc(file=stream)
     details = stream.getvalue()
 
     # Build the header.  This will strip leading whitespace from

@@ -60,8 +60,8 @@ import errno
 import shelve
 from sbclassifier.classifiers.basic import Classifier
 from sbclassifier import cdb
-from sbclassifier import dbmstorage
-from sbclassifier.safepickle import pickle_write, pickle_read
+from sbclassifier.safepickle import pickle_read
+from sbclassifier.safepickle import pickle_write
 
 # Make shelve use binary pickles by default.
 oldShelvePickler = shelve.Pickler
@@ -170,7 +170,7 @@ class DBDictClassifier(Classifier):
 
         logging.debug('Loading state from %s database', self.db_name)
 
-        self.dbm = dbmstorage.open(self.db_name, self.mode)
+        self.dbm = dbm.open(self.db_name, self.mode)
         self.db = shelve.Shelf(self.dbm)
 
         if self.statekey in self.db:
@@ -199,7 +199,7 @@ class DBDictClassifier(Classifier):
         # changed_words could mess us up a little.  Possibly a little
         # lock while we copy and reset self.changed_words would be appropriate.
         # For now, just do it the naive way.
-        for key, flag in self.changed_words.iteritems():
+        for key, flag in self.changed_words.items():
             if flag is WORD_CHANGED:
                 val = self.wordinfo[key]
                 self.db[key] = val.__getstate__()
@@ -282,7 +282,7 @@ class DBDictClassifier(Classifier):
         self.changed_words[word] = WORD_DELETED
 
     def _wordinfokeys(self):
-        wordinfokeys = self.db.keys()
+        wordinfokeys = list(self.db.keys())
         del wordinfokeys[wordinfokeys.index(self.statekey)]
         return wordinfokeys
 
@@ -590,7 +590,7 @@ class CDBClassifier(Classifier):
                                      data[self.statekey].split(',')]
             self.wordinfo = dict([(self.uunquote(k),
                                    self._WordInfoFactory(v))
-                                  for k, v in data.iteritems()
+                                  for k, v in data.items()
                                   if k != self.statekey])
             logging.debug('%s is an existing CDB, with %d ham and %d spam',
                           self.db_name, self.nham, self.nspam)
@@ -602,8 +602,8 @@ class CDBClassifier(Classifier):
 
     def store(self):
         items = [(self.statekey, "%d,%d" % (self.nham, self.nspam))]
-        for word, wi in self.wordinfo.iteritems():
-            if isinstance(word, types.UnicodeType):
+        for word, wi in self.wordinfo.items():
+            if isinstance(word, str):
                 word = word.encode("utf-8")
             items.append((word, "%d,%d" % (wi.hamcount, wi.spamcount)))
         db = open(self.db_name, "wb")
@@ -971,7 +971,7 @@ def open_storage(data_source_name, db_type="dbm", mode=None):
             return klass(data_source_name, mode)
         else:
             return klass(data_source_name)
-    except dbmstorage.error as e:
+    except dbm.error as e:
         if str(e) == "No dbm modules available!":
             # We expect this to hit a fair few people, so warn them nicely,
             # rather than just printing the trackback.
