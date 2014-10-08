@@ -207,6 +207,7 @@ class Stripper(object):
 # nothing but a uuencoded money.txt; OTOH, uuencode seems to be on
 # its way out (that's an old spam).
 
+
 class UUencodeStripper(Stripper):
     def __init__(self):
         Stripper.__init__(self, uuencode_begin_re.search,
