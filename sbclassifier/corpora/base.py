@@ -1,6 +1,10 @@
-# This module is part of the spambayes project, which is Copyright 2002-2007
-# The Python Software Foundation and is covered by the Python Software
-# Foundation license.
+# corpus.py - classes for a corpus of messages
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 """Corpus.py - Spambayes corpus management framework.
 
 Classes:

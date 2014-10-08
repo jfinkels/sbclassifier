@@ -1,4 +1,10 @@
-#! /usr/bin/env python
+# mboxutils.py - functions for getting messages from mailbox files/directories
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 """Utilities for dealing with various types of mailboxes.
 
 This is mostly a wrapper around the various useful classes in the

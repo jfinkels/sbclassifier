@@ -1,3 +1,10 @@
+# slurping.py - a classifier that also uses tokens from hyperlinks in messages
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 from email import message_from_string
 import os
 import re

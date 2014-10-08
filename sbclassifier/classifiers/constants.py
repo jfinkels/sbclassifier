@@ -1,3 +1,10 @@
+# constants.py - constant variables used in multiple modules
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 HAM_CUTOFF = 0.2
 SPAM_CUTOFF = 0.9
 

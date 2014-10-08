@@ -1,6 +1,10 @@
-# This module is part of the spambayes project, which is Copyright 2002-2007
-# The Python Software Foundation and is covered by the Python Software
-# Foundation license.
+# filesystem.py - classes for a corpus of messages stored on the filesystem
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 """FileCorpus.py - Corpus composed of file system artifacts
 
 Classes:
