@@ -57,7 +57,6 @@ __credits__ = "All the spambayes contributors."
 import dbm.gnu
 import logging
 import os
-import sys
 import time
 import tempfile
 import errno
@@ -65,13 +64,13 @@ import shelve
 from sbclassifier.classifiers.basic import Classifier
 from sbclassifier.classifiers.basic import PICKLE_VERSION
 from sbclassifier.classifiers.basic import WordInfo
-#from sbclassifier import cdb
+# from sbclassifier import cdb
 from sbclassifier.safepickle import pickle_read
 from sbclassifier.safepickle import pickle_write
 
 try:
-    from cdb import cdb_make
     from cdb import cdb_read
+    from cdb import cdb_write
     cdb_is_available = True
 except ImportError:
     cdb_is_available = False
@@ -1078,46 +1077,46 @@ class MutuallyExclusiveError(Exception):
 #     return nm, typ
 
 
-def convert(old_name=None, old_type=None, new_name=None, new_type=None):
-    # The expected need is to convert the existing hammie.db dbm
-    # database to a hammie.fs ZODB database.
-    if old_name is None:
-        old_name = "hammie.db"
-    if old_type is None:
-        old_type = "dbm"
-    if new_name is None or new_type is None:
-        auto_name, auto_type = database_type({})
-        if new_name is None:
-            new_name = auto_name
-        if new_type is None:
-            new_type = auto_type
+# def convert(old_name=None, old_type=None, new_name=None, new_type=None):
+#     # The expected need is to convert the existing hammie.db dbm
+#     # database to a hammie.fs ZODB database.
+#     if old_name is None:
+#         old_name = "hammie.db"
+#     if old_type is None:
+#         old_type = "dbm"
+#     if new_name is None or new_type is None:
+#         auto_name, auto_type = database_type({})
+#         if new_name is None:
+#             new_name = auto_name
+#         if new_type is None:
+#             new_type = auto_type
 
-    old_bayes = open_storage(old_name, old_type, 'r')
-    new_bayes = open_storage(new_name, new_type)
-    words = old_bayes._wordinfokeys()
+#     old_bayes = open_storage(old_name, old_type, 'r')
+#     new_bayes = open_storage(new_name, new_type)
+#     words = old_bayes._wordinfokeys()
 
-    try:
-        new_bayes.nham = old_bayes.nham
-    except AttributeError:
-        new_bayes.nham = 0
-    try:
-        new_bayes.nspam = old_bayes.nspam
-    except AttributeError:
-        new_bayes.nspam = 0
+#     try:
+#         new_bayes.nham = old_bayes.nham
+#     except AttributeError:
+#         new_bayes.nham = 0
+#     try:
+#         new_bayes.nspam = old_bayes.nspam
+#     except AttributeError:
+#         new_bayes.nspam = 0
 
-    logging.info("Converting %s (%s database) to %s (%s database).", old_name,
-                 old_type, new_name, new_type)
-    logging.info("Database has %s ham, %s spam, and %s words.",
-                 new_bayes.nham, new_bayes.nspam, len(words))
+#     logging.info("Converting %s (%s database) to %s (%s database).", old_name,
+#                  old_type, new_name, new_type)
+#     logging.info("Database has %s ham, %s spam, and %s words.",
+#                  new_bayes.nham, new_bayes.nspam, len(words))
 
-    for word in words:
-        new_bayes._wordinfoset(word, old_bayes._wordinfoget(word))
-    old_bayes.close()
+#     for word in words:
+#         new_bayes._wordinfoset(word, old_bayes._wordinfoget(word))
+#     old_bayes.close()
 
-    logging.info("Storing database, please be patient...")
-    new_bayes.store()
-    logging.info("Conversion complete.")
-    new_bayes.close()
+#     logging.info("Storing database, please be patient...")
+#     new_bayes.store()
+#     logging.info("Conversion complete.")
+#     new_bayes.close()
 
 
 def ensureDir(dirname):
