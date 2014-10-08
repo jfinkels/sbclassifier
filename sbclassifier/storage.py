@@ -1,6 +1,10 @@
-# This module is part of the spambayes project, which is Copyright 2002-2007
-# The Python Software Foundation and is covered by the Python Software
-# Foundation license.
+# storage.py - Bayesian classifiers backed by various databases
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 '''storage.py - Spambayes database management framework.
 
 Classes:
@@ -50,18 +54,61 @@ __author__ = ("Neale Pickett <neale@woozle.org>,"
               "Tim Stone <tim@fourstonesExpressions.com>")
 __credits__ = "All the spambayes contributors."
 
+import dbm.gnu
 import logging
 import os
 import sys
 import time
-import types
 import tempfile
 import errno
 import shelve
 from sbclassifier.classifiers.basic import Classifier
-from sbclassifier import cdb
+from sbclassifier.classifiers.basic import PICKLE_VERSION
+from sbclassifier.classifiers.basic import WordInfo
+#from sbclassifier import cdb
 from sbclassifier.safepickle import pickle_read
 from sbclassifier.safepickle import pickle_write
+
+try:
+    from cdb import cdb_make
+    from cdb import cdb_read
+    cdb_is_available = True
+except ImportError:
+    cdb_is_available = False
+
+
+# A little magic.  We'd like to use ZODB as the default storage,
+# because we've had so many problems with bsddb, and we'd like to swap
+# to new ZODB problems <wink>.  However, apart from this, we only need
+# a standard Python install - if the default was ZODB then we would
+# need ZODB to be installed as well (which it will br for binary users,
+# but might not be for source users).  So what we do is check whether
+# ZODB is importable and if it is, default to that, and if not, default
+# to dbm.  If ZODB is sometimes importable and sometimes not (e.g. you
+# muck around with the PYTHONPATH), then this may not work well - the
+# best idea would be to explicitly put the type in your configuration
+# file.
+try:
+    import ZODB
+except ImportError:
+    DB_TYPE = ("dbm", "hammie.db", "spambayes.messageinfo.db")
+else:
+    del ZODB
+    DB_TYPE = ("zodb", "hammie.fs", "messageinfo.fs")
+
+#: SpamBayes can use either a ZODB or dbm database (quick to score one message)
+#: or a pickle (quick to train on huge amounts of messages).  There is also
+#: (experimental) ability to use a mySQL or PostgresSQL database.
+#:
+#: Must be one of "zeo", "zodb", "cdb", "mysql", "pgsql", "dbm", or "pickle".
+PERSISTENT_USE_DATABASE = DB_TYPE[0]
+
+#: Spambayes builds a database of information that it gathers from incoming
+#: emails and from you, the user, to get better and better at classifying your
+#: email.  This option specifies the name of the database file.  If you don't
+#: give a full pathname, the name will be taken to be relative to the location
+#: of the most recent configuration file loaded.
+PERSISTENT_STORAGE_FILE = DB_TYPE[1]
 
 # Make shelve use binary pickles by default.
 oldShelvePickler = shelve.Pickler
@@ -107,8 +154,7 @@ class PickledClassifier(Classifier):
             # Copy state from tempbayes.  The use of our base-class
             # __setstate__ is forced, in case self is of a subclass of
             # PickledClassifier that overrides __setstate__.
-            Classifier.__setstate__(self,
-                                               tempbayes.__getstate__())
+            Classifier.__setstate__(self, tempbayes.__getstate__())
             logging.debug('%s is an existing pickle, with %d ham and %d spam',
                           self.db_name, self.nham, self.nspam)
         else:
@@ -175,7 +221,7 @@ class DBDictClassifier(Classifier):
 
         if self.statekey in self.db:
             t = self.db[self.statekey]
-            if t[0] != classifier.PICKLE_VERSION:
+            if t[0] != PICKLE_VERSION:
                 raise ValueError("Can't unpickle -- version %s unknown" % t[0])
             (self.nspam, self.nham) = t[1:]
 
@@ -221,8 +267,7 @@ class DBDictClassifier(Classifier):
         self.db.sync()
 
     def _write_state_key(self):
-        self.db[self.statekey] = (classifier.PICKLE_VERSION,
-                                  self.nspam, self.nham)
+        self.db[self.statekey] = (PICKLE_VERSION, self.nspam, self.nham)
 
     def _post_training(self):
         """This is called after training on a wordstream.  We ensure that the
@@ -564,7 +609,7 @@ class CDBClassifier(Classifier):
         # in the form of a comma-delimited string, as that's what
         # we get.
         ham, spam = counts.split(',')
-        wi = classifier.WordInfo()
+        wi = WordInfo()
         wi.hamcount = int(ham)
         wi.spamcount = int(spam)
         return wi
@@ -583,9 +628,10 @@ class CDBClassifier(Classifier):
 
     def load(self):
         if os.path.exists(self.db_name):
-            db = open(self.db_name, "rb")
-            data = dict(cdb.Cdb(db))
-            db.close()
+            data = cdb_read(self.db_name)
+            # db = open(self.db_name, "rb")
+            # data = dict(cdb.Cdb(db))
+            # db.close()
             self.nham, self.nspam = [int(i) for i in
                                      data[self.statekey].split(',')]
             self.wordinfo = dict([(self.uunquote(k),
@@ -606,9 +652,10 @@ class CDBClassifier(Classifier):
             if isinstance(word, str):
                 word = word.encode("utf-8")
             items.append((word, "%d,%d" % (wi.hamcount, wi.spamcount)))
-        db = open(self.db_name, "wb")
-        cdb.cdb_make(db, items)
-        db.close()
+        # db = open(self.db_name, "wb")
+        # cdb.cdb_make(db, items)
+        # db.close()
+        cdb_write(self.db_name, items)
 
     def close(self):
         # We keep no resources open - nothing to do.
@@ -944,90 +991,91 @@ class MutuallyExclusiveError(Exception):
     def __str__(self):
         return "Only one type of database can be specified"
 
-# values are classifier class, True if it accepts a mode
-# arg, and True if the argument is a pathname
-_storage_types = {"dbm": (DBDictClassifier, True, True),
-                  "pickle": (PickledClassifier, False, True),
-                  "pgsql": (PGClassifier, False, False),
-                  "mysql": (mySQLClassifier, False, False),
-                  "cdb": (CDBClassifier, False, True),
-                  "zodb": (ZODBClassifier, True, True),
-                  "zeo": (ZEOClassifier, False, False),
-                  }
+# # values are classifier class, True if it accepts a mode
+# # arg, and True if the argument is a pathname
+# _storage_types = {"dbm": (DBDictClassifier, True, True),
+#                   "pickle": (PickledClassifier, False, True),
+#                   "pgsql": (PGClassifier, False, False),
+#                   "mysql": (mySQLClassifier, False, False),
+#                   "cdb": (CDBClassifier, False, True),
+#                   "zodb": (ZODBClassifier, True, True),
+#                   "zeo": (ZEOClassifier, False, False),
+#                   }
 
 
-def open_storage(data_source_name, db_type="dbm", mode=None):
-    """Return a storage object appropriate to the given parameters.
+# def open_storage(data_source_name, db_type="dbm", mode=None):
+#     """Return a storage object appropriate to the given parameters.
 
-    By centralizing this code here, all the applications will behave
-    the same given the same options.
-    """
-    try:
-        klass, supports_mode, unused = _storage_types[db_type]
-    except KeyError:
-        raise NoSuchClassifierError(db_type)
-    try:
-        if supports_mode and mode is not None:
-            return klass(data_source_name, mode)
-        else:
-            return klass(data_source_name)
-    except dbm.error as e:
-        if str(e) == "No dbm modules available!":
-            # We expect this to hit a fair few people, so warn them nicely,
-            # rather than just printing the trackback.
-            logging.critical("\nYou do not have a dbm module available to use."
-                             " You need to either use a pickle (see the FAQ),"
-                             " use Python 2.3 (or above), or install a dbm"
-                             " module such as bsddb (see"
-                             " http://sf.net/projects/pybsddb).")
-            sys.exit()
-        raise
+#     By centralizing this code here, all the applications will behave
+#     the same given the same options.
+#     """
+#     try:
+#         klass, supports_mode, unused = _storage_types[db_type]
+#     except KeyError:
+#         raise NoSuchClassifierError(db_type)
+#     try:
+#         if supports_mode and mode is not None:
+#             return klass(data_source_name, mode)
+#         else:
+#             return klass(data_source_name)
+#     except dbm.error as e:
+#         if str(e) == "No dbm modules available!":
+#             # We expect this to hit a fair few people, so warn them nicely,
+#             # rather than just printing the trackback.
+#             logging.critical("\nYou do not have a dbm module available to use."
+#                              " You need to either use a pickle (see the FAQ),"
+#                              " use Python 2.3 (or above), or install a dbm"
+#                              " module such as bsddb (see"
+#                              " http://sf.net/projects/pybsddb).")
+#             sys.exit()
+#         raise
 
-# The different database types that are available.
-# The key should be the command-line switch that is used to select this
-# type, and the value should be the name of the type (which
-# must be a valid key for the _storage_types dictionary).
-_storage_options = {"-p": "pickle",
-                    "-d": "dbm",
-                    }
+# # The different database types that are available.
+# # The key should be the command-line switch that is used to select this
+# # type, and the value should be the name of the type (which
+# # must be a valid key for the _storage_types dictionary).
+# _storage_options = {"-p": "pickle",
+#                     "-d": "dbm",
+#                     }
 
 
-def database_type(opts, default_type=("Storage", "persistent_use_database"),
-                  default_name=("Storage", "persistent_storage_file")):
-    """Return the name of the database and the type to use.  The output of
-    this function can be used as the db_type parameter for the open_storage
-    function, for example:
+# def database_type(opts, default_type=PERSISTENT_USE_DATABASE,
+#                   default_name=PERSISTENT_STORAGE_FILE):
+#     """Return the name of the database and the type to use.  The output of
+#     this function can be used as the db_type parameter for the open_storage
+#     function, for example:
 
-        [standard getopts code]
-        db_name, db_type = database_type(opts)
-        storage = open_storage(db_name, db_type)
+#         [standard getopts code]
+#         db_name, db_type = database_type(opts)
+#         storage = open_storage(db_name, db_type)
 
-    The selection is made based on the options passed, or, if the
-    appropriate options are not present, the options in the global
-    options object.
+#     The selection is made based on the options passed, or, if the
+#     appropriate options are not present, the options in the global
+#     options object.
 
-    Currently supports:
-       -p  :  pickle
-       -d  :  dbm
-    """
-    nm, typ = None, None
-    for opt, arg in opts:
-        if opt in _storage_options:
-            if nm is None and typ is None:
-                nm, typ = arg, _storage_options[opt]
-            else:
-                raise MutuallyExclusiveError()
-    if nm is None and typ is None:
-        typ = options[default_type]
-        try:
-            unused, unused, is_path = _storage_types[typ]
-        except KeyError:
-            raise NoSuchClassifierError(typ)
-        if is_path:
-            nm = get_pathname_option(*default_name)
-        else:
-            nm = options[default_name]
-    return nm, typ
+#     Currently supports:
+#        -p  :  pickle
+#        -d  :  dbm
+#     """
+#     nm, typ = None, None
+#     for opt, arg in opts:
+#         if opt in _storage_options:
+#             if nm is None and typ is None:
+#                 nm, typ = arg, _storage_options[opt]
+#             else:
+#                 raise MutuallyExclusiveError()
+#     if nm is None and typ is None:
+#         typ = options[default_type]
+#         try:
+#             unused, unused, is_path = _storage_types[typ]
+#         except KeyError:
+#             raise NoSuchClassifierError(typ)
+#         if is_path:
+#             #nm = get_pathname_option(*default_name)
+#             nm = default_name
+#         else:
+#             nm = options[default_name]
+#     return nm, typ
 
 
 def convert(old_name=None, old_type=None, new_name=None, new_type=None):

@@ -1,3 +1,10 @@
+# basic.py - a basic Bayesian classifier for messages
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 """An implementation of a Bayes-like spam classifier.
 
 Paul Graham's original description:
@@ -198,12 +205,12 @@ class Classifier:
 
         if evidence:
             clues = [(w, p) for p, w, _r in clues]
-            clues.sort(key=lambda x: x[1])
-            clues.insert(0, ('*S*', S))
-            clues.insert(0, ('*H*', H))
+            #clues.sort(key=lambda x: x[1])
+            clues.sort()
+            clues.insert(0, (b'*S*', S))
+            clues.insert(0, (b'*H*', H))
             return prob, clues
-        else:
-            return prob
+        return prob
 
     def learn(self, wordstream, is_spam):
         """Teach the classifier by example.

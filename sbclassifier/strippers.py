@@ -1,3 +1,10 @@
+# strippers.py - functions for removing certain substrings from messages
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 import math
 import re
 import urllib
@@ -38,15 +45,15 @@ X_PICK_APART_URLS = False
 X_LOOKUP_IP = False
 
 # Nuke HTML <style gimmicks.
-html_style_start_re = re.compile(r"""
+html_style_start_re = re.compile(rb"""
     < \s* style\b [^>]* >
 """, re.VERBOSE)
 
-urlsep_re = re.compile(r"[;?:@&=+,$.]")
+urlsep_re = re.compile(rb"[;?:@&=+,$.]")
 
-fname_sep_re = re.compile(r'[/\\:]')
+fname_sep_re = re.compile(rb'[/\\:]')
 
-url_fancy_re = re.compile(r"""
+url_fancy_re = re.compile(rb"""
     \b                      # the preceeding character must not be alphanumeric
     (?:
         (?:
@@ -64,7 +71,7 @@ url_fancy_re = re.compile(r"""
     ([^\s<>"'\x7f-\xff]+)  # capture the guts
 """, re.VERBOSE)                        # '
 
-url_re = re.compile(r"""
+url_re = re.compile(rb"""
     (https? | ftp)  # capture the protocol
     ://             # skip the boilerplate
     # Do a reasonable attempt at detecting the end.  It may or may not
@@ -72,6 +79,15 @@ url_re = re.compile(r"""
     # escapes, cool -- that's a clue too.
     ([^\s<>"'\x7f-\xff]+)  # capture the guts
 """, re.VERBOSE)                        # '
+
+uuencode_begin_re = re.compile(rb"""
+    ^begin \s+
+    (\S+) \s+   # capture mode
+    (\S+) \s*   # capture filename
+    $
+""", re.VERBOSE | re.MULTILINE)
+
+uuencode_end_re = re.compile(rb"^end\s*\n", re.MULTILINE)
 
 
 def log2(n, log=math.log, c=math.log(2)):
@@ -137,7 +153,7 @@ class Stripper(object):
     # HTML comments embedded in words, like
     #     FR<!--slkdflskjf-->EE!
     # Breaking this into "FR" and "EE!" wasn't a real help <wink>.
-    separator = ''  # a subclass can override if this isn't appropriate
+    separator = b''  # a subclass can override if this isn't appropriate
 
     def __init__(self, find_start, find_end):
         # find_start and find_end have signature
@@ -191,16 +207,6 @@ class Stripper(object):
 # nothing but a uuencoded money.txt; OTOH, uuencode seems to be on
 # its way out (that's an old spam).
 
-uuencode_begin_re = re.compile(r"""
-    ^begin \s+
-    (\S+) \s+   # capture mode
-    (\S+) \s*   # capture filename
-    $
-""", re.VERBOSE | re.MULTILINE)
-
-uuencode_end_re = re.compile(r"^end\s*\n", re.MULTILINE)
-
-
 class UUencodeStripper(Stripper):
     def __init__(self):
         Stripper.__init__(self, uuencode_begin_re.search,
@@ -219,7 +225,7 @@ class URLStripper(Stripper):
             search = url_fancy_re.search
         else:
             search = url_re.search
-        Stripper.__init__(self, search, re.compile("").search)
+        Stripper.__init__(self, search, re.compile(b'').search)
 
     def tokenize(self, m):
         proto, guts = m.groups()
@@ -231,7 +237,7 @@ class URLStripper(Stripper):
                 proto = "ftp"
             else:
                 proto = "unknown"
-        tokens = ["proto:" + proto]
+        tokens = [b"proto:" + proto]
         pushclue = tokens.append
 
         if X_PICK_APART_URLS:
@@ -292,30 +298,21 @@ class URLStripper(Stripper):
         #     The code is at http://mystuff.org/here?  Didn't resolve.
         # or
         #     I found it at http://mystuff.org/there/.  Thanks!
-        while guts and guts[-1] in '.:?!/':
-            guts = guts[:-1]
-        for piece in guts.split('/'):
+        guts.rstrip(b'.:?!/')
+        for piece in guts.split(b'/'):
             for chunk in urlsep_re.split(piece):
-                pushclue("url:" + chunk)
+                pushclue(b"url:" + chunk)
         return tokens
 
 
-class StyleStripper(Stripper):
-    def __init__(self):
-        Stripper.__init__(self, html_style_start_re.search,
-                          re.compile(r"</style>").search)
+StyleStripper = Stripper(html_style_start_re.search,
+                         re.compile(br"</style>").search)
 
 
-class CommentStripper(Stripper):
-    def __init__(self):
-        Stripper.__init__(self,
-                          re.compile(r"<!--|<\s*comment\s*[^>]*>").search,
-                          re.compile(r"-->|</comment>").search)
+CommentStripper = Stripper(re.compile(br"<!--|<\s*comment\s*[^>]*>").search,
+                           re.compile(br"-->|</comment>").search)
 
 
 # Nuke stuff between <noframes> </noframes> tags.
-class NoframesStripper(Stripper):
-    def __init__(self):
-        Stripper.__init__(self,
-                          re.compile(r"<\s*noframes\s*>").search,
-                          re.compile(r"</noframes\s*>").search)
+NoframesStripper = Stripper(re.compile(br"<\s*noframes\s*>").search,
+                            re.compile(br"</noframes\s*>").search)

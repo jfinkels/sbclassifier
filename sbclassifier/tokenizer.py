@@ -1,3 +1,10 @@
+# tokenizer.py - tokenizes email messages for later statistical analysis
+#
+# Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
+# Copyright 2014 Jeffrey Finkelstein.
+#
+# This file is part of sbclassifier, which is licensed under the Python
+# Software Foundation License; for more information, see LICENSE.txt.
 """Module to tokenize email messages for spam filtering."""
 
 import email
@@ -768,6 +775,17 @@ del aliases  # Not needed any more
 # k:            9.80    9.64
 
 
+def convert_to_bytes(f):
+    """Converts each object in the iterable `f` to bytes, if it is not bytes
+    already.
+
+    """
+    def converted_f(*args, **kw):
+        for x in f(*args, **kw):
+            yield x if isinstance(x, bytes) else bytes(x, 'utf-8')
+    return converted_f
+
+
 # textparts(msg) returns a set containing all the text components of msg.
 # There's no point decoding binary blobs (like images).  If a text/plain
 # and text/html part happen to have redundant content, it doesn't matter
@@ -792,13 +810,13 @@ def imageparts(msg):
     return [part for part in msg.walk()
             if part.get_content_type().startswith('image/')]
 
-has_highbit_char = re.compile(r"[\x80-\xff]").search
+has_highbit_char = re.compile(rb"[\x80-\xff]").search
 
 # Cheap-ass gimmick to probabilistically find HTML/XML tags.
 # Note that <style and HTML comments are handled by crack_html_style()
 # and crack_html_comment() instead -- they can be very long, and long
 # minimal matches have a nasty habit of blowing the C stack.
-html_re = re.compile(r"""
+html_re = re.compile(rb"""
     <
     (?![\s<>])  # e.g., don't match 'a < b' or '<<<' or 'i<<5' or 'a<>b'
     # guessing that other tags are usually "short"
@@ -856,7 +874,7 @@ def tokenize_word(word, _len=len, maxword=SKIP_MAX_WORD_SIZE):
         # Don't want to skip embedded email addresses.
         # An earlier scheme also split up the y in x@y on '.'.  Not splitting
         # improved the f-n rate; the f-p rate didn't care either way.
-        if n < 40 and '.' in word and word.count('@') == 1:
+        if n < 40 and b'.' in word and word.count('@') == 1:
             p1, p2 = word.split('@')
             yield 'email name:' + p1
             yield 'email addr:' + p2
@@ -1045,13 +1063,13 @@ received_complaints_re = re.compile(r'\([a-z]+(?:\s+[a-z]+)+\)')
 #:         crack_urls = URLStripper().analyze
 crack_urls = URLStripper().analyze
 
-crack_html_style = StyleStripper().analyze
+crack_html_style = StyleStripper.analyze
 
 # Nuke HTML comments.
 
-crack_html_comment = CommentStripper().analyze
+crack_html_comment = CommentStripper.analyze
 
-crack_noframes = NoframesStripper().analyze
+crack_noframes = NoframesStripper.analyze
 
 # Scan HTML for constructs often seen in viruses and worms.
 # <script  </script
@@ -1059,7 +1077,7 @@ crack_noframes = NoframesStripper().analyze
 # src=cid:
 # height=0  width=0
 
-virus_re = re.compile(r"""
+virus_re = re.compile(rb"""
     < /? \s* (?: script | iframe) \b
 |   \b src= ['"]? cid:
 |   \b (?: height | width) = ['"]? 0
@@ -1071,7 +1089,7 @@ def find_html_virus_clues(text):
         yield bingo
 
 
-numeric_entity_re = re.compile(r'&#(\d+);')
+numeric_entity_re = re.compile(rb'&#(\d+);')
 
 
 def numeric_entity_replacer(m):
@@ -1081,7 +1099,7 @@ def numeric_entity_replacer(m):
         return '?'
 
 
-breaking_entity_re = re.compile(r"""
+breaking_entity_re = re.compile(rb"""
     &nbsp;
 |   < (?: p
       |   br
@@ -1121,9 +1139,9 @@ class Tokenizer:
     def get_message(self, obj):
         return get_message(obj)
 
+    @convert_to_bytes
     def tokenize(self, obj):
         msg = self.get_message(obj)
-
         for tok in self.tokenize_headers(msg):
             yield tok
         for tok in self.tokenize_body(msg):
@@ -1216,8 +1234,8 @@ class Tokenizer:
         # but real benefit to keeping case intact in this specific context.
         x = msg.get('subject', '')
         try:
-            subjcharsetlist = email.Header.decode_header(x)
-        except (binascii.Error, email.Errors.HeaderParseError, ValueError):
+            subjcharsetlist = email.header.decode_header(x)
+        except (binascii.Error, email.errors.HeaderParseError, ValueError):
             subjcharsetlist = [(x, 'invalid')]
         for x, subjcharset in subjcharsetlist:
             if subjcharset is not None:
@@ -1248,11 +1266,11 @@ class Tokenizer:
                 continue
 
             noname_count = 0
-            for name, addr in email.Utils.getaddresses(addrlist):
+            for name, addr in email.utils.getaddresses(addrlist):
                 if name:
                     try:
-                        subjcharsetlist = email.Header.decode_header(name)
-                    except (binascii.Error, email.Errors.HeaderParseError,
+                        subjcharsetlist = email.header.decode_header(name)
+                    except (binascii.Error, email.errors.HeaderParseError,
                             ValueError):
                         subjcharsetlist = [(name, 'invalid')]
                     for name, charset in subjcharsetlist:
@@ -1287,7 +1305,7 @@ class Tokenizer:
         if SUMMARIZE_EMAIL_PREFIXES:
             all_addrs = []
             addresses = msg.get_all('to', []) + msg.get_all('cc', [])
-            for name, addr in email.Utils.getaddresses(addresses):
+            for name, addr in email.utils.getaddresses(addresses):
                 all_addrs.append(addr.lower())
 
             if len(all_addrs) > 1:
@@ -1314,7 +1332,7 @@ class Tokenizer:
         if SUMMARIZE_EMAIL_SUFFIXES:
             all_addrs = []
             addresses = msg.get_all('to', []) + msg.get_all('cc', [])
-            for name, addr in email.Utils.getaddresses(addresses):
+            for name, addr in email.utils.getaddresses(addresses):
                 # flip address code so following logic is the same as
                 # that for prefixes
                 addr = list(addr)
@@ -1501,6 +1519,7 @@ class Tokenizer:
         for part in textparts(msg):
             # Decode, or take it as-is if decoding fails.
             try:
+                # TODO decode=True causes the payload to be returned as bytes
                 text = part.get_payload(decode=True)
             except:
                 yield "control: couldn't decode"
