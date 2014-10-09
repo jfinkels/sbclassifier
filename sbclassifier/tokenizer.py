@@ -1124,30 +1124,23 @@ class Tokenizer:
                     "%d %b %Y %H:%M %Z")
 
     def __init__(self):
-        self.setup()
-
-    def setup(self):
-        """Get the tokenizer ready to use; this should be called after
-        all options have been set."""
-        # We put this here, rather than in __init__, so that this can be
-        # done after we set options at runtime (since the tokenizer
-        # instance is generally created when this module is imported).
-        if BASIC_HEADER_TOKENIZE:
-            self.basic_skip = [re.compile(s)
-                               for s in BASIC_HEADER_SKIP]
+        self.basic_skip = [re.compile(s) for s in BASIC_HEADER_SKIP]
 
     def get_message(self, obj):
         return get_message(obj)
 
     @convert_to_bytes
-    def tokenize(self, obj):
+    def tokenize(self, obj, basic_header_tokenize=BASIC_HEADER_TOKENIZE,
+                 basic_header_tokenize_only=BASIC_HEADER_TOKENIZE_ONLY):
         msg = self.get_message(obj)
         for tok in self.tokenize_headers(msg):
             yield tok
         for tok in self.tokenize_body(msg):
             yield tok
 
-    def tokenize_headers(self, msg):
+    def tokenize_headers(self, msg,
+                         basic_header_tokenize=BASIC_HEADER_TOKENIZE,
+                         basic_header_tokenize_only=BASIC_HEADER_TOKENIZE_ONLY):
         # Special tagging of header lines and MIME metadata.
 
         # Content-{Type, Disposition} and their params, and charsets.
@@ -1177,7 +1170,7 @@ class Tokenizer:
         # times, several headers with date/time information will become
         # the best discriminators.
         # (Not just Date, but Received and X-From_.)
-        if BASIC_HEADER_TOKENIZE:
+        if basic_header_tokenize:
             for k, v in list(msg.items()):
                 k = k.lower()
                 for rx in self.basic_skip:
@@ -1188,7 +1181,7 @@ class Tokenizer:
                     for w in subject_word_re.findall(v):
                         for t in tokenize_word(w):
                             yield "%s:%s" % (k, t)
-            if BASIC_HEADER_TOKENIZE_ONLY:
+            if basic_header_tokenize_only:
                 return
 
         # Habeas Headers - see http://www.habeas.com
