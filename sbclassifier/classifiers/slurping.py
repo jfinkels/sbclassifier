@@ -102,6 +102,14 @@ REQUEST_TIMEOUTS = 5
 slurp_wordstream = None
 
 
+def is_unsure(probability):
+    """Returns ``True`` if and only if the specified probability is in the open
+    interval between :const:`HAM_CUTOFF` and :const:`SPAM_CUTOFF`.
+
+    """
+    return HAM_CUTOFF < probability < SPAM_CUTOFF
+
+
 def base_url(self, url):
     # To try and speed things up, and to avoid following
     # unique URLS, we convert the URL to as basic a form
@@ -163,12 +171,13 @@ class SlurpingClassifier(Classifier):
 
         # If necessary, enhance it with the tokens from whatever is
         # at the URL's destination.
-        if len(clues) < MAX_DISCRIMINATORS and \
-           HAM_CUTOFF < prob < SPAM_CUTOFF and slurp_wordstream:
+        needs_to_slurp = all(len(clues) < MAX_DISCRIMINATORS, is_unsure(prob),
+                             slurp_wordstream)
+        if needs_to_slurp:
             slurp_tokens = list(self._generate_slurp())
             slurp_tokens.extend([w for (w, _p) in clues])
             sprob, sclues = super().spamprob(slurp_tokens, True)
-            if not (HAM_CUTOFF < sprob < SPAM_CUTOFF):
+            if not is_unsure(sprob):
                 prob = sprob
                 clues = sclues
         if evidence:
