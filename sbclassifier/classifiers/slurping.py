@@ -6,21 +6,14 @@
 # This file is part of sbclassifier, which is licensed under the Python
 # Software Foundation License; for more information, see LICENSE.txt.
 from email import message_from_string
+import logging
 import os
 import re
 import socket
-try:
-    import urllib.request as request
-    from urllib.error import URLError
-except ImportError:
-    import urllib2 as request
-    from urllib2 import URLError
 
-import logging
+import requests
 
 from sbclassifier.classifiers.basic import Classifier
-from sbclassifier.classifiers.constants import BASIC_HEADER_TOKENIZE
-from sbclassifier.classifiers.constants import BASIC_HEADER_TOKENIZE_ONLY
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import MAX_DISCRIMINATORS
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
@@ -29,7 +22,7 @@ from sbclassifier.corpora.filesystem import ExpiryFileCorpus
 from sbclassifier.corpora.filesystem import FileMessageFactory
 from sbclassifier.safepickle import pickle_read
 from sbclassifier.safepickle import pickle_write
-from sbclassifier.tokenizer import Tokenizer
+from sbclassifier.tokenizer import tokenize
 from sbclassifier.strippers import URLStripper
 
 DOMAIN_AND_PORT_RE = re.compile(r"([^:/\\]+)(:([\d]+))?")
@@ -47,13 +40,22 @@ PROXY_USERNAME = ''
 PROXY_PASSWORD = ''
 
 #: If a spambayes application needs to use HTTP, it will try to do so through
-#: this proxy server. The port defaults to 8080, or can be entered with the
-#: server:port form.
+#: this proxy server.
+#:
+#: See also :const:`PROXY_PORT`.
 PROXY_SERVER = ''
+
+#: If a spambayes application needs to use HTTP, it will try to do so through
+#: this proxy port.
+#:
+#: See also :const:`PROXY_SERVER`.
+PROXY_PORT = 8080
 
 #: (EXPERIMENTAL) This is the number of days that local cached copies of the
 #: text at the URLs will be stored for.
 X_CACHE_EXPIRY_DAYS = 7
+
+# TODO this should use the XDG Base Directory specification for caching.
 
 #: (EXPERIMENTAL) So that SpamBayes doesn't need to retrieve the same URL over
 #: and over again, it stores local copies of the text at the end of the URL.
@@ -95,7 +97,27 @@ X_ONLY_SLURP_BASE = False
 #: parsing web pages.
 X_WEB_PREFIX = ''
 
+REQUEST_TIMEOUTS = 5
+
 slurp_wordstream = None
+
+
+def base_url(self, url):
+    # To try and speed things up, and to avoid following
+    # unique URLS, we convert the URL to as basic a form
+    # as we can - so http://www.massey.ac.nz/~tameyer/index.html?you=me
+    # would become http://massey.ac.nz and http://id.example.com
+    # would become http://example.com
+    url += '/'
+    domain = url.split('/', 1)[0]
+    parts = domain.split('.')
+    if len(parts) > 2:
+        base_domain = parts[-2] + '.' + parts[-1]
+        if len(parts[-1]) < 3:
+            base_domain = parts[-3] + '.' + base_domain
+    else:
+        base_domain = domain
+    return base_domain
 
 
 class SlurpingURLStripper(URLStripper):
@@ -192,27 +214,6 @@ class SlurpingClassifier(Classifier):
         return []
 
     def setup(self):
-        username = PROXY_USERNAME
-        password = PROXY_PASSWORD
-        server = PROXY_SERVER
-        if server.find(":") != -1:
-            server, port = server.split(':', 1)
-        else:
-            port = 8080
-        if server:
-            # Build a new opener that uses a proxy requiring authorization
-            proxy_support = request.ProxyHandler(
-                {"http": "http://%s:%s@%s:%d" %
-                 (username, password,
-                  server, port)})
-            opener = request.build_opener(proxy_support, request.HTTPHandler)
-        else:
-            # Build a new opener without any proxy information.
-            opener = request.build_opener(request.HTTPHandler)
-
-        # Install it
-        request.install_opener(opener)
-
         # Setup the cache for retrieved urls
         age = X_CACHE_EXPIRY_DAYS * 24 * 60 * 60
         dir = X_CACHE_DIRECTORY
@@ -284,10 +285,10 @@ class SlurpingClassifier(Classifier):
             return ["url:non_resolving"]
 
         if X_ONLY_SLURP_BASE:
-            url = self._base_url(url)
+            url = base_url(url)
 
         # Check the unretrievable caches
-        for err in list(self.bad_urls.keys()):
+        for err in self.bad_urls.keys():
             if url in self.bad_urls[err]:
                 return [err]
         if url in self.http_error_urls:
@@ -302,7 +303,7 @@ class SlurpingClassifier(Classifier):
             port = mo.group(3)
         try:
             socket.getaddrinfo(domain, port)
-        except socket.error:
+        except OSError:
             self.bad_urls["url:non_resolving"] += (url,)
             return ["url:non_resolving"]
 
@@ -320,49 +321,30 @@ class SlurpingClassifier(Classifier):
                 self.bad_urls["url:non_html"] += (url,)
                 return ["url:non_html"]
 
-            # Waiting for the default timeout period slows everything
-            # down far too much, so try and reduce it for just this
-            # call (this will only work with Python 2.3 and above).
+            url_with_proto = '{}://{}'.format(proto, url)
+            proxy_info = (PROXY_USERNAME, PROXY_PASSWORD, PROXY_SERVER,
+                          PROXY_PORT)
+            proxies = dict(http='http://{}:{}@{}:{}'.format(*proxy_info))
+            logging.debug("Slurping %s", url)
             try:
-                timeout = socket.getdefaulttimeout()
-                socket.setdefaulttimeout(5)
-            except AttributeError:
-                # Probably Python 2.2.
-                pass
-            try:
-                logging.debug("Slurping %s", url)
-                f = request.urlopen("%s://%s" % (proto, url))
-            except (URLError, socket.error) as details:
-                mo = HTTP_ERROR_RE.match(str(details))
+                f = requests.get(url_with_proto, proxies=proxies,
+                                 timeout=REQUEST_TIMEOUTS)
+            except requests.exceptions.RequestException as exception:
+                mo = HTTP_ERROR_RE.match(str(exception))
                 if mo:
                     self.http_error_urls[url] = "url:http_" + mo.group(1)
                     return ["url:http_" + mo.group(1)]
                 self.bad_urls["url:unknown_error"] += (url,)
                 return ["url:unknown_error"]
-            # Restore the timeout
-            try:
-                socket.setdefaulttimeout(timeout)
-            except AttributeError:
-                # Probably Python 2.2.
-                pass
 
-            try:
-                # Anything that isn't text/html is ignored
-                content_type = f.info().get('content-type')
-                if content_type is None or \
-                   not content_type.startswith("text/html"):
-                    self.bad_urls["url:non_html"] += (url,)
-                    return ["url:non_html"]
+            # Anything that isn't text/html is ignored
+            content_type = f.headers.get('content-type')
+            if content_type is None or \
+               not content_type.startswith("text/html"):
+                self.bad_urls["url:non_html"] += (url,)
+                return ["url:non_html"]
 
-                page = f.read()
-                headers = str(f.info())
-                f.close()
-            except socket.error:
-                # This is probably a temporary error, like a timeout.
-                # For now, just bail out.
-                return []
-
-            fake_message_string = headers + "\r\n" + page
+            fake_message_string = str(f.headers) + "\r\n" + f.text
 
             # Retrieving the same messages over and over again will tire
             # us out, so we store them in our own wee cache.
@@ -374,40 +356,10 @@ class SlurpingClassifier(Classifier):
 
         msg = message_from_string(fake_message_string)
 
-        # We don't want to do full header tokenising, as this is
-        # optimised for messages, not webpages, so we just do the
-        # basic stuff.
-        bht = BASIC_HEADER_TOKENIZE
-        bhto = BASIC_HEADER_TOKENIZE_ONLY
-
-        BASIC_HEADER_TOKENIZE = True
-        BASIC_HEADER_TOKENIZE_ONLY = True
-
-        tokens = Tokenizer().tokenize(msg)
-        pf = X_WEB_PREFIX
-        tokens = ["%s%s" % (pf, tok) for tok in tokens]
-
-        # Undo the changes
-        BASIC_HEADER_TOKENIZE = bht
-        BASIC_HEADER_TOKENIZE_ONLY = bhto
+        tokens = tokenize(msg, basic_header_tokenize=True,
+                          basic_header_tokenize_only=True)
+        tokens = ['{}{}'.format(X_WEB_PREFIX, tok) for tok in tokens]
         return tokens
-
-    def _base_url(self, url):
-        # To try and speed things up, and to avoid following
-        # unique URLS, we convert the URL to as basic a form
-        # as we can - so http://www.massey.ac.nz/~tameyer/index.html?you=me
-        # would become http://massey.ac.nz and http://id.example.com
-        # would become http://example.com
-        url += '/'
-        domain = url.split('/', 1)[0]
-        parts = domain.split('.')
-        if len(parts) > 2:
-            base_domain = parts[-2] + '.' + parts[-1]
-            if len(parts[-1]) < 3:
-                base_domain = parts[-3] + '.' + base_domain
-        else:
-            base_domain = domain
-        return base_domain
 
     def _add_slurped(self, wordstream):
         """Add tokens generated by 'slurping' (i.e. tokenizing

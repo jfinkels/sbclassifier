@@ -77,16 +77,3 @@ USE_CHI_SQUARED_COMBINING = True
 #: We would appreciate feedback about it if you use it - email
 #: spambayes@python.org with your comments and results.
 USE_BIGRAMS = False
-
-#: If true, tokenizer.Tokenizer.tokenize_headers() will tokenize the contents
-#: of each header field just like the text of the message body, using the name
-#: of the header as a tag. Tokens look like "header:word". The basic approach
-#: is simple and effective, but also very sensitive to biases in the ham and
-#: spam collections. For example, if the ham and spam were collected at
-#: different times, several headers with date/time information will become the
-#: best discriminators. (Not just Date, but Received and X-From_.)
-BASIC_HEADER_TOKENIZE = False
-
-#: If true and basic_header_tokenize is also true, then basic_header_tokenize
-#: is the only action performed.
-BASIC_HEADER_TOKENIZE_ONLY = False
