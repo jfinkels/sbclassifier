@@ -189,13 +189,13 @@ class PickleStorageTestCase(_StorageTestBase):
     StorageClass = PickledClassifier
 
 
-@unittest.skip('This is unnecessary')
 class DBStorageTestCase(_StorageTestBase):
     StorageClass = DBDictClassifier
 
     def _fail_open_best(self, *args):
         raise Exception("No dbm modules available!")
 
+    @unittest.skip('This is unnecessary')
     def testNoDBMAvailable(self):
         from sbclassifier.storage import open_storage
 
