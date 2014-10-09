@@ -302,36 +302,36 @@ class MessageInfoDB(MessageInfoBase):
         if self.db is not None:
             self.db.sync()
 
-# If ZODB isn't available, then this class won't be useable, but we
-# still need to be able to import this module.  So we pretend that all
-# is ok.
-try:
-    from persistent import Persistent
-except ImportError:
-    Persistent = object
+# # If ZODB isn't available, then this class won't be useable, but we
+# # still need to be able to import this module.  So we pretend that all
+# # is ok.
+# try:
+#     from persistent import Persistent
+# except ImportError:
+#     Persistent = object
 
 
-class _PersistentMessageInfo(MessageInfoBase, Persistent):
-    def __init__(self):
-        # import ZODB
-        from BTrees.OOBTree import OOBTree
+# class _PersistentMessageInfo(MessageInfoBase, Persistent):
+#     def __init__(self):
+#         # import ZODB
+#         from BTrees.OOBTree import OOBTree
 
-        MessageInfoBase.__init__(self)
-        self.db = OOBTree()
+#         MessageInfoBase.__init__(self)
+#         self.db = OOBTree()
 
 
-class MessageInfoZODB(storage.ZODBClassifier):
-    ClassifierClass = _PersistentMessageInfo
+# class MessageInfoZODB(storage.ZODBClassifier):
+#     ClassifierClass = _PersistentMessageInfo
 
-    def __init__(self, db_name, mode='c'):
-        self.nham = self.nspam = 0  # Only used for debugging prints
-        storage.ZODBClassifier.__init__(self, db_name, mode)
-        self.classifier.store = self.store
-        self.db = self.classifier
+#     def __init__(self, db_name, mode='c'):
+#         self.nham = self.nspam = 0  # Only used for debugging prints
+#         storage.ZODBClassifier.__init__(self, db_name, mode)
+#         self.classifier.store = self.store
+#         self.db = self.classifier
 
-    def __setattr__(self, att, value):
-        # Override ZODBClassifier.__setattr__
-        object.__setattr__(self, att, value)
+#     def __setattr__(self, att, value):
+#         # Override ZODBClassifier.__setattr__
+#         object.__setattr__(self, att, value)
 
 
 # # values are classifier class, True if it accepts a mode
