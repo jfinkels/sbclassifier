@@ -136,20 +136,17 @@ class SlurpingClassifier(Classifier):
         leaves the score in the unsure range, and we have fewer tokens
         than max_discriminators, also generate tokens from the text
         obtained by following http URLs in the message."""
-        h_cut = HAM_CUTOFF
-        s_cut = SPAM_CUTOFF
-
         # Get the raw score.
         prob, clues = super().spamprob(wordstream, True)
 
         # If necessary, enhance it with the tokens from whatever is
         # at the URL's destination.
         if len(clues) < MAX_DISCRIMINATORS and \
-           prob > h_cut and prob < s_cut and slurp_wordstream:
+           HAM_CUTOFF < prob < SPAM_CUTOFF and slurp_wordstream:
             slurp_tokens = list(self._generate_slurp())
             slurp_tokens.extend([w for (w, _p) in clues])
             sprob, sclues = super().spamprob(slurp_tokens, True)
-            if sprob < h_cut or sprob > s_cut:
+            if not (HAM_CUTOFF < sprob < SPAM_CUTOFF):
                 prob = sprob
                 clues = sclues
         if evidence:
