@@ -5,51 +5,30 @@
 #
 # This file is part of sbclassifier, which is licensed under the Python
 # Software Foundation License; for more information, see LICENSE.txt.
-import os
 import pickle
+import shutil
 
-import lockfile
+from lockfile import FileLock
+from tempfile import NamedTemporaryFile
+
+
+#: The number of seconds for which to acquire a file lock. An exception is
+#: raised if the file is still locked after this number of seconds.
+DEFAULT_TIMEOUT = 20
 
 
 def pickle_read(filename):
     """Read pickle file contents with a lock."""
-    lock = lockfile.FileLock(filename)
-    lock.acquire(timeout=20)
-    try:
+    with FileLock(filename, timeout=DEFAULT_TIMEOUT):
         with open(filename, 'rb') as f:
             return pickle.load(f)
-    finally:
-        lock.release()
 
 
 def pickle_write(filename, value, protocol=0):
-    '''Store value as a pickle without creating corruption'''
-    lock = lockfile.FileLock(filename)
-    lock.acquire(timeout=20)
-    try:
-        # Be as defensive as possible.  Always keep a safe copy.
-        tmp = filename + '.tmp'
-        # fp = None
-        # try:
-        with open(tmp, 'wb') as fp:
+    """Store value as a pickle without creating corruption."""
+    with FileLock(filename, timeout=DEFAULT_TIMEOUT):
+        # Be as defensive as possible: dump the pickle data to a temporary file
+        # first, then move the data to the requested filename second.
+        with NamedTemporaryFile(delete=False) as fp:
             pickle.dump(value, fp, protocol)
-        # except IOError as e:
-        #     logging.warning('Failed update: %s', e)
-        #     if fp is not None:
-        #         os.remove(tmp)
-        #     raise
-        try:
-            # With *nix we can just rename, and (as long as permissions
-            # are correct) the old file will vanish.  With win32, this
-            # won't work - the Python help says that there may not be
-            # a way to do an atomic replace, so we rename the old one,
-            # put the new one there, and then delete the old one.  If
-            # something goes wrong, there is at least a copy of the old
-            # one.
-            os.rename(tmp, filename)
-        except OSError:
-            os.rename(filename, filename + '.bak')
-            os.rename(tmp, filename)
-            os.remove(filename + '.bak')
-    finally:
-        lock.release()
+        shutil.move(fp.name, filename)
