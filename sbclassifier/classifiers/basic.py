@@ -53,23 +53,27 @@ LN2 = math.log(2)       # used frequently by chi-combining
 PICKLE_VERSION = 5
 
 
-def chi2Q(x2, v, exp=math.exp, min=min):
-    """Return prob(chisq >= x2, with v degrees of freedom).
+def chi2Q(x2, v):  #, exp=math.exp, min=min):
+    """Return the probability that `chisq` is at least x2, with `v` degrees of
+    freedom.
 
-    v must be even.
+    If `v` is not even, :exc:`ValueError` is raised.
+
     """
-    assert v & 1 == 0
+    if v & 1 != 0:
+        raise ValueError('v must be even')
+
     # XXX If x2 is very large, exp(-m) will underflow to 0.
-    m = x2 / 2.0
-    sum = term = exp(-m)
+    m = x2 / 2  # this is true division on Python 3
+    result = term = exp(-m)
     for i in range(1, v // 2):
         term *= m / i
-        sum += term
+        result += term
     # With small x2 and large v, accumulated roundoff error, plus error in
     # the platform exp(), can cause this to spill a few ULP above 1.0.  For
     # example, chi2Q(100, 300) on my box has sum == 1.0 + 2.0**-52 at this
     # point.  Returning a value even a teensy bit over 1.0 is no good.
-    return min(sum, 1.0)
+    return min(result, 1.0)
 
 
 class WordInfo(object):
