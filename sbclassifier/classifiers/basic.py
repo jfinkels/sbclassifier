@@ -65,7 +65,7 @@ def chi2Q(x2, v):  #, exp=math.exp, min=min):
 
     # XXX If x2 is very large, exp(-m) will underflow to 0.
     m = x2 / 2  # this is true division on Python 3
-    result = term = exp(-m)
+    result = term = math.exp(-m)
     for i in range(1, v // 2):
         term *= m / i
         result += term
