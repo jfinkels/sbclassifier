@@ -77,22 +77,30 @@ def chi2Q(x2, v):  #, exp=math.exp, min=min):
 
 
 class WordInfo(object):
-    # A WordInfo is created for each distinct word.  spamcount is the
-    # number of trained spam msgs in which the word appears, and hamcount
-    # the number of trained ham msgs.
-    #
-    # Invariant:  For use in a classifier database, at least one of
-    # spamcount and hamcount must be non-zero.
-    #
-    # Important:  This is a tiny object.  Use of __slots__ is essential
-    # to conserve memory.
+    """Represents the number of occurences of a word in spam and in ham.
+
+    An instance of this class is created for each distinct word. `spamcount` is
+    the number of trained spam messages in which the word appears, and
+    ``hamcount`` the number of trained ham messages.
+
+    For use in a classifier database, at least one of `spamcount` and
+    `hamcount` must be non-zero.
+
+    .. note::
+
+       This is a tiny object.  Use of ``__slots__`` is essential to conserve
+       memory.
+
+    """
+
+    #: Only store the spam count and ham count in memory.
     __slots__ = 'spamcount', 'hamcount'
 
-    def __init__(self):
-        self.__setstate__((0, 0))
+    def __init__(self, spamcount=0, hamcount=0):
+        self.__setstate__((spamcount, hamcount))
 
     def __repr__(self):
-        return "WordInfo" + repr((self.spamcount, self.hamcount))
+        return 'WordInfo{!r}'.format(self.__getstate__())
 
     def __getstate__(self):
         return self.spamcount, self.hamcount
