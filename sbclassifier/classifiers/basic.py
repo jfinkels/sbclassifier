@@ -205,8 +205,7 @@ class Classifier:
 
         if evidence:
             clues = [(w, p) for p, w, _r in clues]
-            #clues.sort(key=lambda x: x[1])
-            clues.sort()
+            clues.sort(key=lambda x: x[1])
             clues.insert(0, (b'*S*', S))
             clues.insert(0, (b'*H*', H))
             return prob, clues
@@ -393,7 +392,6 @@ class Classifier:
             # a synthesized bigram token.  The indices are needed to detect
             # overlap later.
             raw = []
-            push = raw.append
             pair = None
             # Keep track of which tokens we've already seen.
             # Don't use a set here!  This is an innermost loop, so speed is
@@ -412,14 +410,13 @@ class Classifier:
                         seen[clue] = 1
                         tup = self._worddistanceget(clue)
                         if tup[0] >= mindist:
-                            push((tup, indices))
+                            raw.append((tup, indices))
 
             # Sort raw, strongest to weakest spamprob.
             raw.sort()
             raw.reverse()
             # Fill clues with the strongest non-overlapping clues.
             clues = []
-            push = clues.append
             # Keep track of which indices have already contributed to a
             # clue in clues.
             seen = {}
@@ -428,7 +425,7 @@ class Classifier:
                 if not overlap:  # no overlap with anything already in clues
                     for i in indices:
                         seen[i] = 1
-                    push(tup)
+                    clues.append(tup)
             # Leave sorted from smallest to largest spamprob.
             clues.reverse()
 
@@ -436,15 +433,14 @@ class Classifier:
             # The all-unigram scheme just scores the tokens as-is.  A set()
             # is used to weed out duplicates at high speed.
             clues = []
-            push = clues.append
             for word in set(wordstream):
                 tup = self._worddistanceget(word)
                 if tup[0] >= mindist:
-                    push(tup)
+                    clues.append(tup)
             clues.sort()
 
         if len(clues) > MAX_DISCRIMINATORS:
-            del clues[0: -MAX_DISCRIMINATORS]
+            del clues[0:-MAX_DISCRIMINATORS]
         # Return (prob, word, record).
         return [t[1:] for t in clues]
 
