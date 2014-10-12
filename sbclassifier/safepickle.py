@@ -24,7 +24,7 @@ def pickle_read(filename):
             return pickle.load(f)
 
 
-def pickle_write(filename, value, protocol=0):
+def pickle_write(filename, value, protocol=pickle.HIGHEST_PROTOCOL):
     """Store value as a pickle without creating corruption."""
     with FileLock(filename, timeout=DEFAULT_TIMEOUT):
         # Be as defensive as possible: dump the pickle data to a temporary file
