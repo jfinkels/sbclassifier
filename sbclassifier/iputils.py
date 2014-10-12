@@ -7,6 +7,7 @@
 # Software Foundation License; for more information, see LICENSE.txt.
 
 
+# TODO Use the Python standard library `ipaddress` package.
 def gen_dotted_quad_clues(pfx, ips):
     for ip in ips:
         yield "%s:%s/32" % (pfx, ip)
