@@ -9,13 +9,26 @@ from sbclassifier import Classifier
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
 
+
 def test_classifier():
+    ham_strings = 'dog cat horse sloth koala'.split()
+    spam_strings = 'shark raptor bear spider cockroach'.split()
     classifier = Classifier()
-    # Definitely not spam.
-    classifier.learn('dog cat horse sloth koala', False)
-    # Definitely spam.
-    classifier.learn('shark raptor bear spider cockroach', True)
-    probability = classifier.spamprob('shark bear spider')
+    classifier.learn_ham(ham_strings)
+    classifier.learn_spam(spam_strings)
+    probability = classifier.spamprob(['shark', 'bear', 'spider'])
     assert SPAM_CUTOFF <= probability
-    probability = classifier.spamprob('dog sloth koala')
+    probability = classifier.spamprob(['dog', 'sloth', 'koala'])
+    assert probability <= HAM_CUTOFF
+
+
+def test_bigrams():
+    ham_strings = 'dog cat horse sloth koala'.split()
+    spam_strings = 'shark raptor bear spider cockroach'.split()
+    classifier = Classifier(use_bigrams=True)
+    classifier.learn_ham(ham_strings)
+    classifier.learn_spam(spam_strings)
+    probability = classifier.spamprob(['shark', 'bear', 'spider'])
+    assert SPAM_CUTOFF <= probability
+    probability = classifier.spamprob(['dog', 'sloth', 'koala'])
     assert probability <= HAM_CUTOFF

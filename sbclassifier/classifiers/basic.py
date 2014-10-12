@@ -277,6 +277,22 @@ class Classifier:
             return prob, clues
         return prob
 
+    def learn_spam(self, wordstream):
+        """Convenience method for ``self.learn(wordstream, True)``."""
+        self.learn(wordstream, True)
+
+    def learn_ham(self, wordstream):
+        """Convenience method for ``self.learn(wordstream, False)``."""
+        self.learn(wordstream, False)
+
+    def unlearn_spam(self, wordstream):
+        """Convenience method for ``self.unlearn(wordstream, True)``."""
+        self.unlearn(wordstream, True)
+
+    def unlearn_ham(self, wordstream):
+        """Convenience method for ``self.unlearn(wordstream, False)``."""
+        self.unlearn(wordstream, False)
+
     def learn(self, wordstream, is_spam):
         """Teach the classifier that the words in `wordstream` are either
         definitely spam or definitely ham.
