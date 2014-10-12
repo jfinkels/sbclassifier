@@ -109,17 +109,17 @@ PERSISTENT_USE_DATABASE = DB_TYPE[0]
 #: of the most recent configuration file loaded.
 PERSISTENT_STORAGE_FILE = DB_TYPE[1]
 
-# Make shelve use binary pickles by default.
-oldShelvePickler = shelve.Pickler
+# # Make shelve use binary pickles by default.
+# oldShelvePickler = shelve.Pickler
 
 
-def binaryDefaultPickler(f, binary=1):
-    return oldShelvePickler(f, binary)
-shelve.Pickler = binaryDefaultPickler
+# def binaryDefaultPickler(f, binary=1):
+#     return oldShelvePickler(f, binary)
+# shelve.Pickler = binaryDefaultPickler
 
-PICKLE_TYPE = 1
-NO_UPDATEPROBS = False   # Probabilities will not be autoupdated with training
-UPDATEPROBS = True       # Probabilities will be autoupdated with training
+#PICKLE_TYPE = 1
+#NO_UPDATEPROBS = False   # Probabilities will not be autoupdated with training
+#UPDATEPROBS = True       # Probabilities will be autoupdated with training
 
 
 class PickledClassifier(Classifier):
@@ -132,16 +132,16 @@ class PickledClassifier(Classifier):
 
     def load(self):
         '''Load this instance from the pickle.'''
-        # This is a bit strange, because the loading process
-        # creates a temporary instance of PickledClassifier, from which
-        # this object's state is copied.  This is a nuance of the way
-        # that pickle does its job.
+        # This is a bit strange, because the loading process creates a
+        # temporary instance of PickledClassifier, from which this object's
+        # state is copied.  This is a nuance of the way that pickle does its
+        # job.
+        #
         # Tim sez:  that's because this is an unusual way to use pickle.
         # Note that nothing non-trivial is actually copied, though:
         # assignment merely copies a pointer.  The actual wordinfo etc
         # objects are shared between tempbayes and self, and the tiny
         # tempbayes object is reclaimed when load() returns.
-
         logging.debug('Loading state from %s pickle', self.db_name)
 
         try:
@@ -168,7 +168,7 @@ class PickledClassifier(Classifier):
 
         logging.debug('Persisting %s as pickle', self.db_name)
 
-        pickle_write(self.db_name, self, PICKLE_TYPE)
+        pickle_write(self.db_name, self)  # , PICKLE_TYPE)
 
     def close(self):
         # we keep no resources open - nothing to do
@@ -910,7 +910,7 @@ class Trainer(object):
     '''Associates a Classifier object and one or more Corpora, \
     is an observer of the corpora'''
 
-    def __init__(self, bayes, is_spam, updateprobs=NO_UPDATEPROBS):
+    def __init__(self, bayes, is_spam, updateprobs=False):
         '''Constructor(Classifier, is_spam(True|False),
         updateprobs(True|False)'''
 
@@ -965,14 +965,14 @@ class Trainer(object):
 
 class SpamTrainer(Trainer):
     '''Trainer for spam'''
-    def __init__(self, bayes, updateprobs=NO_UPDATEPROBS):
+    def __init__(self, bayes, updateprobs=False):
         '''Constructor'''
         Trainer.__init__(self, bayes, True, updateprobs)
 
 
 class HamTrainer(Trainer):
     '''Trainer for ham'''
-    def __init__(self, bayes, updateprobs=NO_UPDATEPROBS):
+    def __init__(self, bayes, updateprobs=False):
         '''Constructor'''
         Trainer.__init__(self, bayes, False, updateprobs)
 
