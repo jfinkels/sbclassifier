@@ -903,92 +903,92 @@ class ZEOClassifier(ZODBClassifier):
 
 # Flags that the Trainer will recognise.  These should be or'able integer
 # values (i.e. 1, 2, 4, 8, etc.).
-NO_TRAINING_FLAG = 1
+# NO_TRAINING_FLAG = 1
 
 
-class Trainer(object):
-    '''Associates a Classifier object and one or more Corpora, \
-    is an observer of the corpora'''
+# class Trainer(object):
+#     '''Associates a Classifier object and one or more Corpora, \
+#     is an observer of the corpora'''
 
-    def __init__(self, bayes, is_spam, updateprobs=False):
-        '''Constructor(Classifier, is_spam(True|False),
-        updateprobs(True|False)'''
+#     def __init__(self, bayes, is_spam, updateprobs=False):
+#         '''Constructor(Classifier, is_spam(True|False),
+#         updateprobs(True|False)'''
 
-        self.bayes = bayes
-        self.is_spam = is_spam
-        self.updateprobs = updateprobs
+#         self.bayes = bayes
+#         self.is_spam = is_spam
+#         self.updateprobs = updateprobs
 
-    def onAddMessage(self, message, flags=0):
-        '''A message is being added to an observed corpus.'''
-        if not (flags & NO_TRAINING_FLAG):
-            self.train(message)
+#     def onAddMessage(self, message, flags=0):
+#         '''A message is being added to an observed corpus.'''
+#         if not (flags & NO_TRAINING_FLAG):
+#             self.train(message)
 
-    def train(self, message):
-        '''Train the database with the message'''
+#     def train(self, message):
+#         '''Train the database with the message'''
 
-        logging.debug('training with %s', message.key())
+#         logging.debug('training with %s', message.key())
 
-        self.bayes.learn(message.tokenize(), self.is_spam)
-        message.setId(message.key())
-        message.RememberTrained(self.is_spam)
+#         self.bayes.learn(message.tokenize(), self.is_spam)
+#         message.setId(message.key())
+#         message.RememberTrained(self.is_spam)
 
-    def onRemoveMessage(self, message, flags=0):
-        '''A message is being removed from an observed corpus.'''
-        # If a message is being expired from the corpus, we do
-        # *NOT* want to untrain it, because that's not what's happening.
-        # If this is the case, then flags will include NO_TRAINING_FLAG.
-        # There are no other flags we currently use.
-        if not (flags & NO_TRAINING_FLAG):
-            self.untrain(message)
+#     def onRemoveMessage(self, message, flags=0):
+#         '''A message is being removed from an observed corpus.'''
+#         # If a message is being expired from the corpus, we do
+#         # *NOT* want to untrain it, because that's not what's happening.
+#         # If this is the case, then flags will include NO_TRAINING_FLAG.
+#         # There are no other flags we currently use.
+#         if not (flags & NO_TRAINING_FLAG):
+#             self.untrain(message)
 
-    def untrain(self, message):
-        '''Untrain the database with the message'''
+#     def untrain(self, message):
+#         '''Untrain the database with the message'''
 
-        logging.debug('untraining with %s', message.key())
+#         logging.debug('untraining with %s', message.key())
 
-        self.bayes.unlearn(message.tokenize(), self.is_spam)
-#                           self.updateprobs)
-        # can raise ValueError if database is fouled.  If this is the case,
-        # then retraining is the only recovery option.
-        message.RememberTrained(None)
+#         self.bayes.unlearn(message.tokenize(), self.is_spam)
+# #                           self.updateprobs)
+#         # can raise ValueError if database is fouled.  If this is the case,
+#         # then retraining is the only recovery option.
+#         message.RememberTrained(None)
 
-    def trainAll(self, corpus):
-        '''Train all the messages in the corpus'''
-        for msg in corpus:
-            self.train(msg)
+#     def trainAll(self, corpus):
+#         '''Train all the messages in the corpus'''
+#         for msg in corpus:
+#             self.train(msg)
 
-    def untrainAll(self, corpus):
-        '''Untrain all the messages in the corpus'''
-        for msg in corpus:
-            self.untrain(msg)
-
-
-class SpamTrainer(Trainer):
-    '''Trainer for spam'''
-    def __init__(self, bayes, updateprobs=False):
-        '''Constructor'''
-        Trainer.__init__(self, bayes, True, updateprobs)
+#     def untrainAll(self, corpus):
+#         '''Untrain all the messages in the corpus'''
+#         for msg in corpus:
+#             self.untrain(msg)
 
 
-class HamTrainer(Trainer):
-    '''Trainer for ham'''
-    def __init__(self, bayes, updateprobs=False):
-        '''Constructor'''
-        Trainer.__init__(self, bayes, False, updateprobs)
+# class SpamTrainer(Trainer):
+#     '''Trainer for spam'''
+#     def __init__(self, bayes, updateprobs=False):
+#         '''Constructor'''
+#         Trainer.__init__(self, bayes, True, updateprobs)
 
 
-class NoSuchClassifierError(Exception):
-    def __init__(self, invalid_name):
-        Exception.__init__(self, invalid_name)
-        self.invalid_name = invalid_name
-
-    def __str__(self):
-        return repr(self.invalid_name)
+# class HamTrainer(Trainer):
+#     '''Trainer for ham'''
+#     def __init__(self, bayes, updateprobs=False):
+#         '''Constructor'''
+#         Trainer.__init__(self, bayes, False, updateprobs)
 
 
-class MutuallyExclusiveError(Exception):
-    def __str__(self):
-        return "Only one type of database can be specified"
+# class NoSuchClassifierError(Exception):
+#     def __init__(self, invalid_name):
+#         Exception.__init__(self, invalid_name)
+#         self.invalid_name = invalid_name
+
+#     def __str__(self):
+#         return repr(self.invalid_name)
+
+
+# class MutuallyExclusiveError(Exception):
+#     def __str__(self):
+#         return "Only one type of database can be specified"
 
 # # values are classifier class, True if it accepts a mode
 # # arg, and True if the argument is a pathname
@@ -1119,12 +1119,12 @@ class MutuallyExclusiveError(Exception):
 #     new_bayes.close()
 
 
-def ensureDir(dirname):
-    """Ensure that the given directory exists - in other words, if it
-    does not exist, attempt to create it."""
-    try:
-        os.mkdir(dirname)
-        logging.debug("Creating directory %s", dirname)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+# def ensureDir(dirname):
+#     """Ensure that the given directory exists - in other words, if it
+#     does not exist, attempt to create it."""
+#     try:
+#         os.mkdir(dirname)
+#         logging.debug("Creating directory %s", dirname)
+#     except OSError as e:
+#         if e.errno != errno.EEXIST:
+#             raise
