@@ -7,6 +7,6 @@
 # Software Foundation License; for more information, see LICENSE.txt.
 from .basic import Classifier
 from .slurping import SlurpingClassifier
-from .storage import PickledClassifier
+from .storage import PickleClassifier
 from .storage import ShelveClassifier
 from .storage import CDBClassifier

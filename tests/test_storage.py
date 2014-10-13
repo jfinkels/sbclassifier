@@ -12,7 +12,7 @@ import unittest
 
 from sbclassifier.classifiers.storage import CDBClassifier
 from sbclassifier.classifiers.storage import ShelveClassifier
-from sbclassifier.classifiers.storage import PickledClassifier
+from sbclassifier.classifiers.storage import PickleClassifier
 #from sbclassifier.classifiers.storage import ZODBClassifier
 
 try:
@@ -86,7 +86,6 @@ class _StorageTestBase(unittest.TestCase):
     def _checkWordCounts(self, word, expected_ham, expected_spam):
         assert word
         info = self.classifier._wordinfoget(word)
-        print(self.classifier.wordinfo)
         if info is None:
             if expected_ham == expected_spam == 0:
                 return
@@ -187,7 +186,7 @@ class _StorageTestBase(unittest.TestCase):
 
 # Test classes for each classifier.
 class PickleStorageTestCase(_StorageTestBase):
-    StorageClass = PickledClassifier
+    StorageClass = PickleClassifier
 
 
 class DBStorageTestCase(_StorageTestBase):

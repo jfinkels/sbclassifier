@@ -137,7 +137,7 @@ class StoredClassifierBase(Classifier):
         pass
 
 
-class PickledClassifier(StoredClassifierBase):
+class PickleClassifier(StoredClassifierBase):
     """Classifier object persisted in a pickle.
 
     `filename` is the location of the pickle file. Call to :meth:`load` and
