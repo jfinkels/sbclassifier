@@ -1,4 +1,4 @@
-# corpus.py - classes for a corpus of messages
+# base.py - classes for a corpus of messages
 #
 # Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
 # Copyright 2014 Jeffrey Finkelstein.
@@ -81,10 +81,11 @@ __author__ = "Tim Stone <tim@fourstonesExpressions.com>"
 __credits__ = "Richie Hindle, Tim Peters, all the spambayes contributors."
 
 import logging
-# import sys           # for output of docstring
-import time
 
 from blinker import signal
+
+from sbclassifier.corpora.caches import NaiveCache
+from sbclassifier.corpora.caches import INFINITY
 
 SPAM = True
 HAM = False
@@ -110,70 +111,98 @@ message_removed = signal('message-removed')
 
 
 class Corpus:
-    """An observable dictionary of Messages"""
+    """A dictionary of :class:`Message` objects.
 
-    def __init__(self, factory, cacheSize=-1):
+    The corpus is backed by an internal cache of messages, whose class is
+    specified in :attr:`CacheClass`. When messages are added or removed via the
+    :meth:`add_message` or :meth:`remove_message`, respectively, the
+    ``message_added`` or ``message_removed`` signal is emitted. To connect a
+    function to these signal, use code like the following::
+
+        from sbclassifier import message_added
+        from sbclassifier import message_removed
+
+        @message_added.connect
+        def on_message_added(corpus, message):
+            print('Message {} was added to corpus {}'.format(message, corpus))
+
+        @message_removed.connect
+        def on_message_added(corpus, message):
+            print('Message {} was added to corpus {}'.format(message, corpus))
+
+    """
+
+    #: The subclass of :class:`Cache` to which messages will be added and
+    #: removed when the :meth:`add_message` and :meth:`remove_message` methods
+    #: are called.
+    #:
+    #: Subclasses of :class:`Corpus` can specify a different cache class here.
+    CacheClass = NaiveCache
+
+    def __init__(self, cache_size=INFINITY):
+        self.message_cache = self.CacheClass(cache_size)
         # dict of all messages in corpus; value is None if msg not currently
         # loaded
-        self.msgs = {}
+        #self.msgs = {}
         # keys of messages currently loaded this *could* be derived by
         # iterating msgs
-        self.keysInMemory = []
-        self.cacheSize = cacheSize  # max number of messages in memory
-        self.factory = factory    # factory for the correct Message subclass
+        #self.keysInMemory = []
+        #self.cacheSize = cacheSize  # max number of messages in memory
+        #self.factory = factory    # factory for the correct Message subclass
 
-    def add_message(self, message, do_training=True):
+    def add_message(self, message, message_id=None, emit_signal=True):
         """Adds the specified message to this corpus.
 
-        If `do_training` is ``True``, the :data:`message_added` signal is
+        If `emit_signal` is ``True``, the :data:`message_added` signal is
         emitted.
 
         """
-        logging.debug('adding message %s to corpus', message.key())
-        self.cache_message(message)
-        if do_training:
+        key = message.id() if message_id is None else message_id
+        logging.debug('adding message %s to corpus', key)
+        self.message_cache.put(key, message)
+        if emit_signal:
             message_added.send(self, message=message)
 
-    def remove_message(self, message, do_training=True):
+    def remove_message(self, message, emit_signal=True):
         """Removes the specified message from this corpus.
 
-        If `do_training` is ``True``, the :data:`message_removed` signal is
+        If `emit_signal` is ``True``, the :data:`message_removed` signal is
         emitted.
 
         """
-        key = message.key()
+        key = message.id()
         logging.debug('removing message %s from corpus', key)
-        self.uncache_message(key)
-        del self.msgs[key]
-        if do_training:
+        self.message_cache.pop(key)
+        #del self.msgs[key]
+        if emit_signal:
             message_removed.send(self, message=message)
 
-    def cache_message(self, message):
-        """Adds a message to the in-memory cache."""
-        # This method should probably not be overridden
-        key = message.key()
-        logging.debug('placing %s in corpus cache', key)
-        self.msgs[key] = message
-        # Here is where we manage the in-memory cache size...
-        self.keysInMemory.append(key)
-        if self.cacheSize > 0:       # performance optimization
-            if len(self.keysInMemory) > self.cacheSize:
-                keyToFlush = self.keysInMemory[0]
-                self.uncache_message(keyToFlush)
+    # def cache_message(self, message):
+    #     """Adds a message to the in-memory cache."""
+    #     # This method should probably not be overridden
+    #     key = message.key()
+    #     logging.debug('placing %s in corpus cache', key)
+    #     self.msgs[key] = message
+    #     # Here is where we manage the in-memory cache size...
+    #     self.keysInMemory.append(key)
+    #     if self.cacheSize > 0:       # performance optimization
+    #         if len(self.keysInMemory) > self.cacheSize:
+    #             keyToFlush = self.keysInMemory[0]
+    #             self.uncache_message(keyToFlush)
 
-    def uncache_message(self, key):
-        """Removes the message with the specified key from the in-memory cache.
+    # def uncache_message(self, key):
+    #     """Removes the message with the specified key from the in-memory cache.
 
-        """
-        # This method should probably not be overridden
-        logging.debug('Flushing %s from corpus cache', key)
-        try:
-            ki = self.keysInMemory.index(key)
-        except ValueError:
-            pass
-        else:
-            del self.keysInMemory[ki]
-        self.msgs[key] = None
+    #     """
+    #     # This method should probably not be overridden
+    #     logging.debug('Flushing %s from corpus cache', key)
+    #     try:
+    #         ki = self.keysInMemory.index(key)
+    #     except ValueError:
+    #         pass
+    #     else:
+    #         del self.keysInMemory[ki]
+    #     self.msgs[key] = None
 
     # def takeMessage(self, key, fromcorpus, fromCache=False):
     #     '''Move a Message from another corpus to this corpus'''
@@ -184,30 +213,41 @@ class Corpus:
     #     fromcorpus.removeMessage(msg)
     #     self.addMessage(msg)
 
-    def make_message(self, key, content=None):
-        # This method will likely be overridden
-        return self.factory.create(key, content)
+    # def make_message(self, key, content=None):
+    #     # This method will likely be overridden
+    #     return self.factory.create(key, content)
 
     def get(self, key, default=None):
-        if key not in self.msgs:
-            return default
-        return self[key]
+        # if key not in self.msgs:
+        #     return default
+        # return self[key]
+        return self.message_cache.get(key, default)
 
     def __getitem__(self, key):
-        amsg = self.msgs[key]
-        if amsg is None:
-            amsg = self.make_message(key)     # lazy init, saves memory
-            self.cache_message(amsg)
-        return amsg
+        # amsg = self.msgs[key]
+        # if amsg is None:
+        #     amsg = self.make_message(key)     # lazy init, saves memory
+        #     self.cache_message(amsg)
+        # return amsg
+        return self.message_cache[key]
 
     def keys(self):
-        return self.msgs.keys()
+        return self.message_cache.keys()
 
-    def __contains__(self, message):
-        return message in self.msgs.values()
+    def values(self):
+        return self.message_cache.values()
+
+    def items(self):
+        return self.message_cache.items()
+
+    def __contains__(self, key):
+        return key in self.message_cache
+
+    def __len__(self):
+        return len(self.message_cache)
 
     def __iter__(self):
-        return iter(self.msgs.values())
+        return iter(self.message_cache)
 
     def __str__(self):
         return repr(self)
@@ -216,8 +256,8 @@ class Corpus:
         raise NotImplementedError
 
 
-class MessageFactory(object):
-    '''Abstract Message Factory'''
-    def create(self, key, content=None):
-        '''Create a message instance'''
-        raise NotImplementedError
+# class MessageFactory(object):
+#     '''Abstract Message Factory'''
+#     def create(self, key, content=None):
+#         '''Create a message instance'''
+#         raise NotImplementedError

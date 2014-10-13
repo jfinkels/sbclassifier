@@ -1,6 +1,6 @@
 # sbclassifier #
 
-A standalone Python 3 package containing the SpamBayes classifier.
+A standalone Python 3.4 package containing the SpamBayes classifier.
 
 ## Copyright license ##
 

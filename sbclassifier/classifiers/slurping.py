@@ -19,7 +19,7 @@ from sbclassifier.classifiers.basic import MAX_DISCRIMINATORS
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
 from sbclassifier.corpora.filesystem import ExpiryFileCorpus
-from sbclassifier.corpora.filesystem import FileMessageFactory
+#from sbclassifier.corpora.filesystem import FileMessageFactory
 from sbclassifier.safepickle import pickle_read
 from sbclassifier.safepickle import pickle_write
 from sbclassifier.tokenizer import tokenize
@@ -221,8 +221,7 @@ class SlurpingClassifier(Classifier):
             logging.debug("Creating URL cache directory")
             os.makedirs(dir)
 
-        self.urlCorpus = ExpiryFileCorpus(age, FileMessageFactory(),
-                                          dir, cacheSize=20)
+        self.urlCorpus = ExpiryFileCorpus(age, dir, cacheSize=20)
         # Kill any old information in the cache
         self.urlCorpus.removeExpiredMessages()
 

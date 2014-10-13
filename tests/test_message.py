@@ -8,27 +8,24 @@
 import email
 import itertools
 import math
-import os
-import sys
 import tempfile
 import time
 import unittest
 
 from sbclassifier.classifiers import Classifier
+from sbclassifier.message import Classification
+from sbclassifier.message import force_crlf
 from sbclassifier.message import MAILID_HEADER_NAME
 from sbclassifier.message import CLASSIFICATION_HEADER_NAME
 from sbclassifier.message import EVIDENCE_HEADER_NAME
 from sbclassifier.message import SCORE_HEADER_NAME
 from sbclassifier.message import TRAINED_HEADER_NAME
 from sbclassifier.message import THERMOSTAT_HEADER_NAME
-from sbclassifier.message import HEADER_HAM_STRING
-from sbclassifier.message import HEADER_SPAM_STRING
-from sbclassifier.message import HEADER_UNSURE_STRING
 from sbclassifier.message import insert_exception_header
 from sbclassifier.message import Message
-from sbclassifier.message import MessageInfoDB
-from sbclassifier.message import MessageInfoPickle
-from sbclassifier.message import SBHeaderMessage
+from sbclassifier.messageinfo import MessageInfoDB
+from sbclassifier.messageinfo import MessageInfoPickle
+# from sbclassifier.message import SBHeaderMessage
 from sbclassifier.tokenizer import tokenize
 
 # We borrow the test messages that test_sb_server uses.
@@ -93,49 +90,49 @@ class MessageTest(unittest.TestCase):
     def setUp(self):
         self.msg = email.message_from_string(spam1, _class=Message)
 
-    def test_persistent_state(self):
-        self.assertEqual(self.msg.stored_attributes, ['c', 't',
-                                                      'date_modified'])
+    # def test_persistent_state(self):
+    #     self.assertEqual(self.msg.stored_attributes, ['c', 't',
+    #                                                   'date_modified'])
 
     def test_initialisation(self):
-        self.assertEqual(self.msg.id, None)
+        self.assertEqual(self.msg.messageid, None)
         self.assertEqual(self.msg.c, None)
         self.assertEqual(self.msg.t, None)
 
     def test_setId(self):
         # Verify that you can't change the id.
-        self.msg.id = "test"
-        self.assertRaises(ValueError, self.msg.setId, "test2")
+        self.msg.messageid = "test"
+        self.assertRaises(ValueError, self.msg.set_id, "test2")
 
         # Verify that you can't set the id to None.
-        self.msg.id = None
-        self.assertRaises(ValueError, self.msg.setId, None)
+        self.msg.messageid = None
+        self.assertRaises(ValueError, self.msg.set_id, None)
 
         # Verify that id must be a string.
-        self.assertRaises(TypeError, self.msg.setId, 1)
-        self.assertRaises(TypeError, self.msg.setId, False)
-        self.assertRaises(TypeError, self.msg.setId, [])
+        self.assertRaises(TypeError, self.msg.set_id, 1)
+        self.assertRaises(TypeError, self.msg.set_id, False)
+        self.assertRaises(TypeError, self.msg.set_id, [])
 
         id = "Test"
-        self.msg.setId(id)
-        self.assertEqual(self.msg.id, id)
+        self.msg.set_id(id)
+        self.assertEqual(self.msg.messageid, id)
 
-        # Check info db load_msg is called.
-        self.msg.id = None
-        saved = self.msg.message_info_db.load_msg
-        self.done = False
-        try:
-            self.msg.message_info_db.load_msg = self._fake_setState
-            self.msg.setId(id)
-            self.assertEqual(self.done, True)
-        finally:
-            self.msg.message_info_db.load_msg = saved
+        # # Check info db load_msg is called.
+        # self.msg.id = None
+        # saved = self.msg.message_info_db.load_msg
+        # self.done = False
+        # try:
+        #     self.msg.message_info_db.load_msg = self._fake_setState
+        #     self.msg.set_id(id)
+        #     self.assertEqual(self.done, True)
+        # finally:
+        #     self.msg.message_info_db.load_msg = saved
 
     def test_getId(self):
-        self.assertEqual(self.msg.getId(), None)
+        self.assertEqual(self.msg.id(), None)
         id = "test"
-        self.msg.id = id
-        self.assertEqual(self.msg.getId(), id)
+        self.msg.messageid = id
+        self.assertEqual(self.msg.id(), id)
 
     # def test_tokenize(self):
     #     toks = self.msg.tokenize()
@@ -143,7 +140,7 @@ class MessageTest(unittest.TestCase):
 
     def test_force_CRLF(self):
         self.assertTrue('\r' not in good1)
-        lines = self.msg._force_CRLF(good1).split('\n')
+        lines = force_crlf(good1).split('\n')
         for line in lines:
             if line:
                 self.assertTrue(line.endswith('\r'))
@@ -155,70 +152,54 @@ class MessageTest(unittest.TestCase):
             if line:
                 self.assertTrue(line.endswith('\r'))
 
-    def _fake_setState(self, state):
-        self.done = True
+    # def test_GetClassification(self):
+    #     self.msg.c = 's'
+    #     self.assertEqual(self.msg.GetClassification(), HEADER_SPAM_STRING)
+    #     self.msg.c = 'h'
+    #     self.assertEqual(self.msg.GetClassification(), HEADER_HAM_STRING)
+    #     self.msg.c = 'u'
+    #     self.assertEqual(self.msg.GetClassification(), HEADER_UNSURE_STRING)
+    #     self.msg.c = 'a'
+    #     self.assertEqual(self.msg.GetClassification(), None)
 
-    def test_modified(self):
-        saved = self.msg.message_info_db.store_msg
-        try:
-            self.msg.message_info_db.store_msg = self._fake_setState
-            self.done = False
-            self.msg.modified()
-            self.assertEqual(self.done, False)
-            self.msg.id = "Test"
-            self.msg.modified()
-            self.assertEqual(self.done, True)
-        finally:
-            self.msg.message_info_db.store_msg = saved
+    # def test_RememberClassification(self):
+    #     self.msg.RememberClassification(HEADER_SPAM_STRING)
+    #     self.assertEqual(self.msg.c, 's')
+    #     self.msg.RememberClassification(HEADER_HAM_STRING)
+    #     self.assertEqual(self.msg.c, 'h')
+    #     self.msg.RememberClassification(HEADER_UNSURE_STRING)
+    #     self.assertEqual(self.msg.c, 'u')
+    #     self.assertRaises(ValueError, self.msg.RememberClassification, "a")
 
-    def test_GetClassification(self):
-        self.msg.c = 's'
-        self.assertEqual(self.msg.GetClassification(), HEADER_SPAM_STRING)
-        self.msg.c = 'h'
-        self.assertEqual(self.msg.GetClassification(), HEADER_HAM_STRING)
-        self.msg.c = 'u'
-        self.assertEqual(self.msg.GetClassification(), HEADER_UNSURE_STRING)
-        self.msg.c = 'a'
-        self.assertEqual(self.msg.GetClassification(), None)
-
-    def test_RememberClassification(self):
-        self.msg.RememberClassification(HEADER_SPAM_STRING)
-        self.assertEqual(self.msg.c, 's')
-        self.msg.RememberClassification(HEADER_HAM_STRING)
-        self.assertEqual(self.msg.c, 'h')
-        self.msg.RememberClassification(HEADER_UNSURE_STRING)
-        self.assertEqual(self.msg.c, 'u')
-        self.assertRaises(ValueError, self.msg.RememberClassification, "a")
-
-        # Check that self.msg.modified is called.
-        saved = self.msg.modified
-        self.done = False
-        try:
-            self.msg.modified = self._fake_modified
-            self.msg.RememberClassification(HEADER_UNSURE_STRING)
-            self.assertEqual(self.done, True)
-        finally:
-            self.msg.modified = saved
+    #     # Check that self.msg.modified is called.
+    #     saved = self.msg.modified
+    #     self.done = False
+    #     try:
+    #         self.msg.modified = self._fake_modified
+    #         self.msg.RememberClassification(HEADER_UNSURE_STRING)
+    #         self.assertEqual(self.done, True)
+    #     finally:
+    #         self.msg.modified = saved
 
     def _fake_modified(self):
         self.done = True
 
     def test_GetAndRememberTrained(self):
         t = "test"
-        saved = self.msg.modified
-        self.done = False
-        try:
-            self.msg.modified = self._fake_modified
-            self.msg.RememberTrained(t)
-            self.assertEqual(self.done, True)
-        finally:
-            self.msg.modified = saved
-        self.assertEqual(self.msg.GetTrained(), t)
+        # saved = self.msg.modified
+        # self.done = False
+        # try:
+        #     self.msg.modified = self._fake_modified
+        self.msg.remember_trained(t)
+        #     self.assertEqual(self.done, True)
+        # finally:
+        #     self.msg.modified = saved
+        self.assertEqual(self.msg.is_trained(), t)
 
 
 class SBHeaderMessageTest(unittest.TestCase):
     def setUp(self):
-        self.msg = email.message_from_string(spam1, _class=SBHeaderMessage)
+        self.msg = email.message_from_string(spam1, _class=Message)
         # Get a prob and some clues.
         c = Classifier()
         self.u_prob, clues = c.spamprob(tokenize(good1), True)
@@ -227,77 +208,80 @@ class SBHeaderMessageTest(unittest.TestCase):
         c.unlearn(tokenize(good1), False)
         c.learn(tokenize(spam1), True)
         self.s_prob, self.clues = c.spamprob(tokenize(spam1), True)
-        self.ham = HEADER_HAM_STRING
-        self.spam = HEADER_SPAM_STRING
-        self.unsure = HEADER_UNSURE_STRING
+        self.ham = Classification.ham
+        self.spam = Classification.spam
+        self.unsure = Classification.unsure
         self.to = "tony.meyer@gmail.com;ta-meyer@ihug.co.nz"
         self.msg["to"] = self.to
 
     def test_setIdFromPayload(self):
-        id = self.msg.setIdFromPayload()
+        id = self.msg.set_id_from_payload()
         self.assertEqual(id, None)
-        self.assertEqual(self.msg.id, None)
+        self.assertEqual(self.msg.messageid, None)
         msgid = "test"
         msg = "".join((MAILID_HEADER_NAME, ": ", msgid, "\r\n", good1))
-        msg = email.message_from_string(msg, _class=SBHeaderMessage)
-        id = msg.setIdFromPayload()
+        msg = email.message_from_string(msg, _class=Message)
+        id = msg.set_id_from_payload()
         self.assertEqual(id, msgid)
-        self.assertEqual(msg.id, msgid)
+        self.assertEqual(msg.id(), msgid)
 
     def test_disposition_header_ham(self):
         name = CLASSIFICATION_HEADER_NAME
-        self.msg.addSBHeaders(self.g_prob, self.clues)
-        self.assertEqual(self.msg[name], self.ham)
-        self.assertEqual(self.msg.GetClassification(), self.ham)
+        self.msg.add_sb_headers(self.g_prob, self.clues)
+        self.assertEqual(self.msg[name], self.ham.name)
+        self.assertEqual(self.msg.classification(), self.ham)
 
     def test_disposition_header_spam(self):
         name = CLASSIFICATION_HEADER_NAME
-        self.msg.addSBHeaders(self.s_prob, self.clues)
-        self.assertEqual(self.msg[name], self.spam)
-        self.assertEqual(self.msg.GetClassification(), self.spam)
+        self.msg.add_sb_headers(self.s_prob, self.clues)
+        self.assertEqual(self.msg[name], self.spam.name)
+        self.assertEqual(self.msg.classification(), self.spam)
 
     def test_disposition_header_unsure(self):
         name = CLASSIFICATION_HEADER_NAME
-        self.msg.addSBHeaders(self.u_prob, self.clues)
-        self.assertEqual(self.msg[name], self.unsure)
-        self.assertEqual(self.msg.GetClassification(), self.unsure)
+        self.msg.add_sb_headers(self.u_prob, self.clues)
+        self.assertEqual(self.msg[name], self.unsure.name)
+        self.assertEqual(self.msg.classification(), self.unsure)
 
     def test_score_header_off(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues)
+        self.msg.add_sb_headers(self.g_prob, self.clues)
         self.assertEqual(self.msg[SCORE_HEADER_NAME], None)
 
     def test_score_header(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, include_score=True,
-                              header_score_digits=21)
+        self.msg.add_sb_headers(self.g_prob, self.clues, include_score=True,
+                                header_score_digits=21)
         self.assertEqual(self.msg[SCORE_HEADER_NAME], "%.21f" % (self.g_prob,))
 
     def test_score_header_log(self):
-        self.msg.addSBHeaders(self.s_prob, self.clues, include_score=True,
-                              header_score_digits=21,
-                              header_score_logarithm=True)
+        self.msg.add_sb_headers(self.s_prob, self.clues, include_score=True,
+                                header_score_digits=21,
+                                header_score_logarithm=True)
         self.assertTrue(self.msg[SCORE_HEADER_NAME].
-                     startswith("%.21f" % (self.s_prob,)))
+                        startswith("%.21f" % (self.s_prob,)))
         self.assertTrue(self.msg[SCORE_HEADER_NAME].
-                     endswith(" (%d)" % (-math.log10(1.0-self.s_prob),)))
+                        endswith(" (%d)" % (-math.log10(1.0-self.s_prob),)))
 
     def test_thermostat_header_off(self):
-        self.msg.addSBHeaders(self.u_prob, self.clues)
+        self.msg.add_sb_headers(self.u_prob, self.clues)
         self.assertEqual(self.msg[THERMOSTAT_HEADER_NAME], None)
 
     def test_thermostat_header_unsure(self):
-        self.msg.addSBHeaders(self.u_prob, self.clues, include_thermostat=True)
+        self.msg.add_sb_headers(self.u_prob, self.clues,
+                                include_thermostat=True)
         self.assertEqual(self.msg[THERMOSTAT_HEADER_NAME], "*****")
 
     def test_thermostat_header_spam(self):
-        self.msg.addSBHeaders(self.s_prob, self.clues, include_thermostat=True)
+        self.msg.add_sb_headers(self.s_prob, self.clues,
+                                include_thermostat=True)
         self.assertEqual(self.msg[THERMOSTAT_HEADER_NAME], "*********")
 
     def test_thermostat_header_ham(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, include_thermostat=True)
+        self.msg.add_sb_headers(self.g_prob, self.clues,
+                                include_thermostat=True)
         self.assertEqual(self.msg[THERMOSTAT_HEADER_NAME], "")
 
     def test_evidence_header(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, include_evidence=True)
+        self.msg.add_sb_headers(self.g_prob, self.clues, include_evidence=True)
         header = self.msg[EVIDENCE_HEADER_NAME]
         header_clues = split_evidence(header)
         for word, score in self.clues:
@@ -305,8 +289,8 @@ class SBHeaderMessageTest(unittest.TestCase):
             self.assertEqual(round(score, 2), header_clues[word])
 
     def test_evidence_header_partial(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, include_evidence=True,
-                              clue_mailheader_cutoff=0.1)
+        self.msg.add_sb_headers(self.g_prob, self.clues, include_evidence=True,
+                                clue_mailheader_cutoff=0.1)
         header = self.msg[EVIDENCE_HEADER_NAME]
         header_clues = split_evidence(header)
         for word, score in self.clues:
@@ -317,8 +301,8 @@ class SBHeaderMessageTest(unittest.TestCase):
                 self.assertTrue(word not in header_clues)
 
     def test_evidence_header_empty(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, include_evidence=True,
-                              clue_mailheader_cutoff=0.0)
+        self.msg.add_sb_headers(self.g_prob, self.clues, include_evidence=True,
+                                clue_mailheader_cutoff=0.0)
         header = self.msg[EVIDENCE_HEADER_NAME]
         header_clues = split_evidence(header)
         for word, score in self.clues:
@@ -329,79 +313,79 @@ class SBHeaderMessageTest(unittest.TestCase):
                 self.assertTrue(word not in header_clues)
 
     def test_evidence_header_off(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues)
+        self.msg.add_sb_headers(self.g_prob, self.clues)
         self.assertEqual(self.msg[EVIDENCE_HEADER_NAME], None)
 
     def test_notate_to_off(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues)
-        self.msg.addSBHeaders(self.u_prob, self.clues)
-        self.msg.addSBHeaders(self.s_prob, self.clues)
+        self.msg.add_sb_headers(self.g_prob, self.clues)
+        self.msg.add_sb_headers(self.u_prob, self.clues)
+        self.msg.add_sb_headers(self.s_prob, self.clues)
         self.assertEqual(self.msg["To"], self.to)
 
     def test_notate_to_ham(self):
-        self.msg.addSBHeaders(self.g_prob, self.clues, notate_to=(self.ham, ))
+        self.msg.add_sb_headers(self.g_prob, self.clues, notate_to=(self.ham,))
         disp, orig = self.msg["To"].split(',', 1)
         self.assertEqual(orig, self.to)
-        self.assertEqual(disp, "%s@spambayes.invalid" % (self.ham,))
+        self.assertEqual(disp, "%s@spambayes.invalid" % (self.ham.name,))
 
     def test_notate_to_unsure(self):
-        self.msg.addSBHeaders(self.u_prob, self.clues,
-                              notate_to=(self.ham, self.unsure))
+        self.msg.add_sb_headers(self.u_prob, self.clues,
+                                notate_to=(self.ham, self.unsure))
         disp, orig = self.msg["To"].split(',', 1)
         self.assertEqual(orig, self.to)
-        self.assertEqual(disp, "%s@spambayes.invalid" % (self.unsure,))
+        self.assertEqual(disp, "%s@spambayes.invalid" % (self.unsure.name,))
 
     def test_notate_to_spam(self):
-        self.msg.addSBHeaders(self.s_prob, self.clues,
-                              notate_to=(self.ham, self.spam, self.unsure))
+        self.msg.add_sb_headers(self.s_prob, self.clues,
+                                notate_to=(self.ham, self.spam, self.unsure))
         disp, orig = self.msg["To"].split(',', 1)
         self.assertEqual(orig, self.to)
-        self.assertEqual(disp, "%s@spambayes.invalid" % (self.spam,))
+        self.assertEqual(disp, "%s@spambayes.invalid" % (self.spam.name,))
 
     def test_notate_subject_off(self):
         subject = self.msg["Subject"]
-        self.msg.addSBHeaders(self.g_prob, self.clues)
-        self.msg.addSBHeaders(self.u_prob, self.clues)
-        self.msg.addSBHeaders(self.s_prob, self.clues)
+        self.msg.add_sb_headers(self.g_prob, self.clues)
+        self.msg.add_sb_headers(self.u_prob, self.clues)
+        self.msg.add_sb_headers(self.s_prob, self.clues)
         self.assertEqual(self.msg["Subject"], subject)
 
     def test_notate_subject_ham(self):
         subject = self.msg["Subject"]
-        self.msg.addSBHeaders(self.g_prob, self.clues,
-                              notate_subject=(self.ham ,))
+        self.msg.add_sb_headers(self.g_prob, self.clues,
+                                notate_subject=(self.ham,))
         disp, orig = self.msg["Subject"].split(',', 1)
         self.assertEqual(orig, subject)
-        self.assertEqual(disp, self.ham)
+        self.assertEqual(disp, self.ham.name)
 
     def test_notate_subject_unsure(self):
         subject = self.msg["Subject"]
-        self.msg.addSBHeaders(self.u_prob, self.clues,
-                              notate_subject=(self.ham, self.unsure))
+        self.msg.add_sb_headers(self.u_prob, self.clues,
+                                notate_subject=(self.ham, self.unsure))
         disp, orig = self.msg["Subject"].split(',', 1)
         self.assertEqual(orig, subject)
-        self.assertEqual(disp, self.unsure)
+        self.assertEqual(disp, self.unsure.name)
 
     def test_notate_subject_spam(self):
         subject = self.msg["Subject"]
-        self.msg.addSBHeaders(self.s_prob, self.clues,
-                              notate_subject=(self.ham, self.spam,
-                                              self.unsure))
+        self.msg.add_sb_headers(self.s_prob, self.clues,
+                                notate_subject=(self.ham, self.spam,
+                                                self.unsure))
         disp, orig = self.msg["Subject"].split(',', 1)
         self.assertEqual(orig, subject)
-        self.assertEqual(disp, self.spam)
+        self.assertEqual(disp, self.spam.name)
 
     @unittest.skip("don't know how to fix this")
     def test_notate_to_changed(self):
-        saved_ham = HEADER_HAM_STRING
-        notate_to = NOTATE_TO  # options.get_option("Headers", "notate_to")
-        saved_to = notate_to.allowed_values
+        saved_ham = Classification.ham
+        # notate_to = NOTATE_TO  # options.get_option("Headers", "notate_to")
+        # saved_to = notate_to.allowed_values
         try:
-            #options["Headers", "header_ham_string"] = "bacon"
-            header_strings = (HEADER_HAM_STRING, HEADER_SPAM_STRING,
-                              HEADER_UNSURE_STRING)
-            notate_to = NOTATE_TO  # options.get_option("Headers", "notate_to")
-            notate_to.allowed_values = header_strings
-            self.ham = HEADER_HAM_STRING
+            # options["Headers", "header_ham_string"] = "bacon"
+            # header_strings = (HEADER_HAM_STRING, HEADER_SPAM_STRING,
+            #                  HEADER_UNSURE_STRING)
+            # notate_to = NOTATE_TO  # options.get_option("Headers", "notate_to")
+            # notate_to.allowed_values = header_strings
+            self.ham = Classification.ham
             result = self.test_notate_to_ham()
             # Just be sure that it's using the new value.
             self.assertEqual(self.msg["To"].split(',', 1)[0],
@@ -409,25 +393,25 @@ class SBHeaderMessageTest(unittest.TestCase):
         finally:
             # If we leave these changed, then lots of other tests will
             # fail.
-            #options["Headers", "header_ham_string"] = saved_ham
+            # options["Headers", "header_ham_string"] = saved_ham
             self.ham = saved_ham
-            notate_to.allowed_values = saved_to
+            # notate_to.allowed_values = saved_to
         return result
 
     def test_id_header(self):
         id = "test"
-        self.msg.id = id
-        self.msg.addSBHeaders(self.g_prob, self.clues)
+        self.msg.messageid = id
+        self.msg.add_sb_headers(self.g_prob, self.clues)
         self.assertEqual(self.msg[MAILID_HEADER_NAME], id)
 
     def test_id_header_off(self):
         id = "test"
-        self.msg.id = id
-        self.msg.addSBHeaders(self.g_prob, self.clues, add_unique_id=False)
+        self.msg.messageid = id
+        self.msg.add_sb_headers(self.g_prob, self.clues, add_unique_id=False)
         self.assertEqual(self.msg[MAILID_HEADER_NAME], None)
 
     def test_currentSBHeaders(self):
-        sbheaders = self.msg.currentSBHeaders()
+        sbheaders = self.msg.current_sb_headers()
         self.assertEqual({}, sbheaders)
         headers = {CLASSIFICATION_HEADER_NAME: '1',
                    MAILID_HEADER_NAME: '2',
@@ -439,7 +423,7 @@ class SBHeaderMessageTest(unittest.TestCase):
                    }
         for name, val in list(headers.items()):
             self.msg[name] = val
-        sbheaders = self.msg.currentSBHeaders()
+        sbheaders = self.msg.current_sb_headers()
         self.assertEqual(headers, sbheaders)
 
     def test_delSBHeaders(self):
@@ -454,7 +438,7 @@ class SBHeaderMessageTest(unittest.TestCase):
             self.msg[header] = "test"
         for header in headers:
             self.assertTrue(header in list(self.msg.keys()))
-        self.msg.delSBHeaders()
+        self.msg.remove_sb_headers()
         for header in headers:
             self.assertTrue(header not in list(self.msg.keys()))
 
@@ -466,23 +450,23 @@ class SBHeaderMessageTest(unittest.TestCase):
         for headername, disp in itertools.product(headers, dispositions):
             # Add a notation to the header
             header = self.msg[headername]
-            self.assertEqual(header.find(disp), -1)
-            #options["Headers", "notate_%s" % (headername,)] = \
+            self.assertEqual(header.find(disp.name), -1)
+            # options["Headers", "notate_%s" % (headername,)] = \
             #    (self.ham, self.unsure, self.spam)
             prob = {self.ham: self.g_prob, self.spam: self.s_prob,
                     self.unsure: self.u_prob}[disp]
             if headername == 'subject':
-                self.msg.addSBHeaders(prob, self.clues,
-                                      notate_subject=dispositions)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_subject=dispositions)
             else:  # headername == 'to':
-                self.msg.addSBHeaders(prob, self.clues,
-                                      notate_to=dispositions)
-            self.assertNotEqual(self.msg[headername].find(disp), -1)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_to=dispositions)
+            self.assertNotEqual(self.msg[headername].find(disp.name), -1)
             # Remove it
             if headername == 'subject':
-                self.msg.delNotations(remove_subject_notations=True)
+                self.msg.remove_notations(remove_subject_notations=True)
             else:  # headername == 'to':
-                self.msg.delNotations(remove_to_notations=True)
+                self.msg.remove_notations(remove_to_notations=True)
             self.assertEqual(self.msg[headername], header)
 
     def test_delNotations_missing(self):
@@ -493,23 +477,23 @@ class SBHeaderMessageTest(unittest.TestCase):
         for headername, disp in itertools.product(headers, dispositions):
             # Add a notation to the header
             header = self.msg[headername]
-            self.assertEqual(header.find(disp), -1)
+            self.assertEqual(header.find(disp.name), -1)
             prob = {self.ham: self.g_prob, self.spam: self.s_prob,
                     self.unsure: self.u_prob}[disp]
-            self.msg.addSBHeaders(prob, self.clues)
-            self.assertEqual(self.msg[headername].find(disp), -1)
+            self.msg.add_sb_headers(prob, self.clues)
+            self.assertEqual(self.msg[headername].find(disp.name), -1)
             # Remove it
-            self.msg.delNotations()
+            self.msg.remove_notations()
             self.assertEqual(self.msg[headername], header)
 
     def test_delNotations_no_header(self):
         # Check that it works if there is no subject/to header.
         del self.msg['subject']
-        self.msg.delNotations(remove_subject_notations=True)
+        self.msg.remove_notations(remove_subject_notations=True)
         self.assertEqual(self.msg['subject'], None)
 
         del self.msg['to']
-        self.msg.delNotations(remove_to_notations=True)
+        self.msg.remove_notations(remove_to_notations=True)
         self.assertEqual(self.msg['to'], None)
 
     def test_delNotations_only_once_subject(self):
@@ -525,29 +509,31 @@ class SBHeaderMessageTest(unittest.TestCase):
         for disp in dispositions:
             # Add a notation to the header
             header = self.msg[headername]
-            self.assertEqual(header.find(disp), -1)
+            self.assertEqual(header.find(disp.name), -1)
             prob = {self.ham: self.g_prob, self.spam: self.s_prob,
                     self.unsure: self.u_prob}[disp]
             if headername == 'subject':
-                self.msg.addSBHeaders(prob, self.clues,
-                                      notate_subject=dispositions)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_subject=dispositions)
             else:  # headername == 'to'
-                self.msg.addSBHeaders(prob, self.clues, notate_to=dispositions)
-            self.assertNotEqual(self.msg[headername].find(disp), -1)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_to=dispositions)
+            self.assertNotEqual(self.msg[headername].find(disp.name), -1)
             header2 = self.msg[headername]
             # Add a second notation
             if headername == 'subject':
-                self.msg.addSBHeaders(prob, self.clues,
-                                      notate_subject=dispositions)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_subject=dispositions)
             else:  # headername == 'to'
-                self.msg.addSBHeaders(prob, self.clues, notate_to=dispositions)
+                self.msg.add_sb_headers(prob, self.clues,
+                                        notate_to=dispositions)
             self.assertNotEqual(self.msg[headername].
-                                replace(disp, "", 1).find(disp), -1)
+                                replace(disp.name, "", 1).find(disp.name), -1)
             # Remove it
             if headername == 'subject':
-                self.msg.delNotations(remove_subject_notations=True)
+                self.msg.remove_notations(remove_subject_notations=True)
             else:  # headername == 'to'
-                self.msg.delNotations(remove_to_notations=True)
+                self.msg.remove_notations(remove_to_notations=True)
             self.assertEqual(self.msg[headername], header2)
             # Restore for next time round the loop
             self.msg.replace_header(headername, header)

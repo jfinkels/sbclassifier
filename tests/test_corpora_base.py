@@ -11,7 +11,7 @@ import unittest
 from sbclassifier.corpora import message_added
 from sbclassifier.corpora import message_removed
 from sbclassifier.corpora import Corpus
-from sbclassifier.corpora import MessageFactory
+#from sbclassifier.corpora import MessageFactory
 
 # One example of spam and one of ham - both are used to train, and are
 # then classified.  Not a good test of the classifier, but a perfectly
@@ -63,7 +63,7 @@ class simple_msg(object):
     def createTimestamp(self):
         return self.creation_time
 
-    def key(self):
+    def id(self):
         return self._key
 
     def load(self):
@@ -72,15 +72,15 @@ class simple_msg(object):
 
 class CorpusTest(unittest.TestCase):
     def setUp(self):
-        self.factory = MessageFactory()
+        #self.factory = MessageFactory()
         self.cacheSize = 100
-        self.corpus = Corpus(self.factory, self.cacheSize)
+        self.corpus = Corpus(self.cacheSize)
 
-    def test___init__(self):
-        self.assertEqual(self.corpus.cacheSize, self.cacheSize)
-        self.assertEqual(self.corpus.msgs, {})
-        self.assertEqual(self.corpus.keysInMemory, [])
-        self.assertEqual(self.corpus.factory, self.factory)
+    # def test___init__(self):
+    #     self.assertEqual(self.corpus.cache_size, self.cacheSize)
+    #     self.assertEqual(self.corpus.msgs, {})
+    #     self.assertEqual(self.corpus.keysInMemory, [])
+    #     #self.assertEqual(self.corpus.factory, self.factory)
 
     def test_addObserver(self):
         @message_added.connect
@@ -109,12 +109,14 @@ class CorpusTest(unittest.TestCase):
         self.corpus.remove_message(msg)
         self.assertEqual(self.corpus.get(0), None)
 
+    @unittest.skip('The internal cache should not be tested here')
     def test_cacheMessage(self):
         msg = simple_msg(0)
         self.corpus.cache_message(msg)
         self.assertEqual(self.corpus.msgs[0], msg)
         self.assert_(0 in self.corpus.keysInMemory)
 
+    @unittest.skip('The internal cache should not be tested here')
     def test_flush_cache(self):
         self.corpus.cacheSize = 1
         msg = simple_msg(0)
@@ -127,6 +129,7 @@ class CorpusTest(unittest.TestCase):
         self.assert_(1 in self.corpus.keysInMemory)
         self.assert_(0 not in self.corpus.keysInMemory)
 
+    @unittest.skip('The internal cache should not be tested here')
     def test_unCacheMessage(self):
         msg = simple_msg(0)
         self.corpus.cache_message(msg)
@@ -149,7 +152,7 @@ class CorpusTest(unittest.TestCase):
         ids = [0, 1, 2]
         for id in ids:
             self.corpus.add_message(simple_msg(id))
-        self.assertEqual(self.corpus.get(0).key(), 0)
+        self.assertEqual(self.corpus.get(0).id(), 0)
 
     def test_get_fail(self):
         ids = [0, 1, 2]
@@ -167,7 +170,7 @@ class CorpusTest(unittest.TestCase):
         ids = [0, 1, 2]
         for id in ids:
             self.corpus.add_message(simple_msg(id))
-        self.assertEqual(self.corpus[0].key(), 0)
+        self.assertEqual(self.corpus[0].id(), 0)
 
     def test___getitem___fail(self):
         ids = [0, 1, 2]
@@ -187,14 +190,14 @@ class CorpusTest(unittest.TestCase):
         msgs = (simple_msg(0), simple_msg(1), simple_msg(2))
         for msg in msgs:
             self.corpus.add_message(msg)
-        self.assertEqual(tuple(self.corpus), msgs)
+        self.assertEqual(tuple(self.corpus.values()), msgs)
 
-    def test_makeMessage_no_content(self):
-        key = "testmessage"
-        self.assertRaises(NotImplementedError, self.corpus.make_message, key)
+    # def test_makeMessage_no_content(self):
+    #     key = "testmessage"
+    #     self.assertRaises(NotImplementedError, self.corpus.make_message, key)
 
-    def test_makeMessage_with_content(self):
-        key = "testmessage"
-        content = good1
-        self.assertRaises(NotImplementedError, self.corpus.make_message,
-                          key, content)
+    # def test_makeMessage_with_content(self):
+    #     key = "testmessage"
+    #     content = good1
+    #     self.assertRaises(NotImplementedError, self.corpus.make_message,
+    #                       key, content)

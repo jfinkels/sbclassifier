@@ -9,10 +9,10 @@ from .base import Corpus
 #from .base import ExpiryCorpus
 from .base import message_added
 from .base import message_removed
-from .base import MessageFactory
+#from .base import MessageFactory
 from .filesystem import ExpiryFileCorpus
 from .filesystem import FileCorpus
-from .filesystem import FileMessage
-from .filesystem import GzipFileMessage
-from .filesystem import FileMessageFactory
-from .filesystem import GzipFileMessageFactory
+#from .filesystem import FileMessage
+#from .filesystem import GzipFileMessage
+#from .filesystem import FileMessageFactory
+#from .filesystem import GzipFileMessageFactory

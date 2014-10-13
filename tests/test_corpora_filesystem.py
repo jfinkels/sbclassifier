@@ -12,12 +12,13 @@ import gzip
 import errno
 import unittest
 
+from sbclassifier import message
 from sbclassifier.corpora import ExpiryFileCorpus
 from sbclassifier.corpora import FileCorpus
-from sbclassifier.corpora import FileMessage
-from sbclassifier.corpora import FileMessageFactory
-from sbclassifier.corpora import GzipFileMessage
-from sbclassifier.corpora import GzipFileMessageFactory
+#from sbclassifier.corpora import FileMessage
+#from sbclassifier.corpora import FileMessageFactory
+#from sbclassifier.corpora import GzipFileMessage
+#from sbclassifier.corpora import GzipFileMessageFactory
 
 # One example of spam and one of ham - both are used to train, and are
 # then classified.  Not a good test of the classifier, but a perfectly
@@ -59,40 +60,40 @@ Chris
 malformed1 = """From: ta-meyer@ihug.co.nz
 Subject: No body, and no separator"""
 
-class _FactoryBaseTest(unittest.TestCase):
-    # Subclass must define a concrete factory.
-    factory = None
-    def test_create_no_content(self):
-        f = self.factory()
-        key = "testmessage"
-        directory = "fctesthamcorpus"
-        msg = f.create(key, directory)
-        self.assertEqual(msg.file_name, key)
-        self.assertEqual(msg.directory, directory)
-        self.assertEqual(msg.loaded, False)
+# class _FactoryBaseTest(unittest.TestCase):
+#     # Subclass must define a concrete factory.
+#     factory = None
+#     def test_create_no_content(self):
+#         f = self.factory()
+#         key = "testmessage"
+#         directory = "fctesthamcorpus"
+#         msg = f.create(key, directory)
+#         self.assertEqual(msg.file_name, key)
+#         self.assertEqual(msg.directory, directory)
+#         self.assertEqual(msg.loaded, False)
 
-    def test_create_with_content(self):
-        f = self.factory()
-        key = "testmessage"
-        directory = "fctesthamcorpus"
-        content = good1
-        msg = f.create(key, directory, content=good1)
-        self.assertEqual(msg.file_name, key)
-        self.assertEqual(msg.directory, directory)
-        self.assertEqual(msg.loaded, True)
-        self.assertEqual(msg.as_string(), good1.replace("\n", "\r\n"))
-
-
-class FileMessageFactoryTest(_FactoryBaseTest):
-    factory = FileMessageFactory
-    def test_klass(self):
-        self.assertEqual(self.factory.klass, FileMessage)
+#     def test_create_with_content(self):
+#         f = self.factory()
+#         key = "testmessage"
+#         directory = "fctesthamcorpus"
+#         content = good1
+#         msg = f.create(key, directory, content=good1)
+#         self.assertEqual(msg.file_name, key)
+#         self.assertEqual(msg.directory, directory)
+#         self.assertEqual(msg.loaded, True)
+#         self.assertEqual(msg.as_string(), good1.replace("\n", "\r\n"))
 
 
-class GzipFileMessageFactoryTest(_FactoryBaseTest):
-    factory = GzipFileMessageFactory
-    def test_klass(self):
-        self.assertEqual(self.factory.klass, GzipFileMessage)
+# class FileMessageFactoryTest(_FactoryBaseTest):
+#     factory = FileMessageFactory
+#     def test_klass(self):
+#         self.assertEqual(self.factory.klass, FileMessage)
+
+
+# class GzipFileMessageFactoryTest(_FactoryBaseTest):
+#     factory = GzipFileMessageFactory
+#     def test_klass(self):
+#         self.assertEqual(self.factory.klass, GzipFileMessage)
 
 
 class _FileCorpusBaseTest(unittest.TestCase):
@@ -142,132 +143,132 @@ class _FileCorpusBaseTest(unittest.TestCase):
                 raise
 
 
-class _FileMessageBaseTest(_FileCorpusBaseTest):
-    # Subclass must define a concrete message klass, and wrong_klass.
-    klass = None
-    wrong_klass = None
+# class _FileMessageBaseTest(_FileCorpusBaseTest):
+#     # Subclass must define a concrete message klass, and wrong_klass.
+#     klass = None
+#     wrong_klass = None
 
-    def setUp(self):
-        _FileCorpusBaseTest.setUp(self)
-        self.filename = "testmessage"
-        self.directory = "fctestspamcorpus"
-        fn = os.path.join(self.directory, self.filename)
-        try:
-            os.remove(fn)
-        except OSError:
-            pass
-        with open(fn, "w") as f:
-            self.created_time = time.time()
-            f.write(spam1)
-        self.msg = self.klass(self.filename, self.directory)
-        # Message of wrong type, to test mixed corpus.
-        self.wrongname = "wrongmessage"
-        def good_as_string():
-            return good1
-        wrong_msg = self.wrong_klass(self.wrongname, self.directory)
-        wrong_msg.as_string = good_as_string
-        wrong_msg.store()
+#     def setUp(self):
+#         _FileCorpusBaseTest.setUp(self)
+#         self.filename = "testmessage"
+#         self.directory = "fctestspamcorpus"
+#         fn = os.path.join(self.directory, self.filename)
+#         try:
+#             os.remove(fn)
+#         except OSError:
+#             pass
+#         with open(fn, "w") as f:
+#             self.created_time = time.time()
+#             f.write(spam1)
+#         self.msg = self.klass(self.filename, self.directory)
+#         # Message of wrong type, to test mixed corpus.
+#         self.wrongname = "wrongmessage"
+#         def good_as_string():
+#             return good1
+#         wrong_msg = self.wrong_klass(self.wrongname, self.directory)
+#         wrong_msg.as_string = good_as_string
+#         wrong_msg.store()
 
-    def tearDown(self):
-        fn = os.path.join(self.directory, self.filename)
-        try:
-            os.remove(fn)
-        except OSError:
-            pass
-            fn = os.path.join(self.directory, self.wrongname)
-        try:
-            os.remove(fn)
-        except OSError:
-            pass
-        _FileCorpusBaseTest.tearDown(self)
+#     def tearDown(self):
+#         fn = os.path.join(self.directory, self.filename)
+#         try:
+#             os.remove(fn)
+#         except OSError:
+#             pass
+#             fn = os.path.join(self.directory, self.wrongname)
+#         try:
+#             os.remove(fn)
+#         except OSError:
+#             pass
+#         _FileCorpusBaseTest.tearDown(self)
 
-    def test___init__(self):
-        self.assertEqual(self.msg.file_name, self.filename)
-        self.assertEqual(self.msg.directory, self.directory)
-        self.assertEqual(self.msg.loaded, False)
+#     def test___init__(self):
+#         self.assertEqual(self.msg.file_name, self.filename)
+#         self.assertEqual(self.msg.directory, self.directory)
+#         self.assertEqual(self.msg.loaded, False)
 
-    def test_as_string(self):
-        self.assertEqual(self.msg.as_string(), spam1.replace("\n", "\r\n"))
+#     def test_as_string(self):
+#         self.assertEqual(self.msg.as_string(), spam1.replace("\n", "\r\n"))
 
-    def test_pathname(self):
-        self.assertEqual(self.msg.pathname(), os.path.join(self.directory,
-                                                           self.filename))
+#     def test_pathname(self):
+#         self.assertEqual(self.msg.pathname(), os.path.join(self.directory,
+#                                                            self.filename))
 
-    def test_name(self):
-        self.assertEqual(self.msg.name(), self.filename)
+#     def test_name(self):
+#         self.assertEqual(self.msg.name(), self.filename)
 
-    def test_key(self):
-        self.assertEqual(self.msg.key(), self.filename)
+#     def test_key(self):
+#         self.assertEqual(self.msg.key(), self.filename)
 
-    def test_createTimestamp(self):
-        timestamp = self.msg.createTimestamp()
-        # As long as they are equal to the nearest second, that will do.
-        self.assertEqual(int(timestamp), int(self.created_time))
+#     def test_createTimestamp(self):
+#         timestamp = self.msg.createTimestamp()
+#         # As long as they are equal to the nearest second, that will do.
+#         self.assertEqual(int(timestamp), int(self.created_time))
 
-    def test_remove(self):
-        pathname = os.path.join(self.directory, self.filename)
-        self.assertEqual(os.path.exists(pathname), True)
-        self.msg.remove()
-        self.assertEqual(os.path.exists(pathname), False)
+#     def test_remove(self):
+#         pathname = os.path.join(self.directory, self.filename)
+#         self.assertEqual(os.path.exists(pathname), True)
+#         self.msg.remove()
+#         self.assertEqual(os.path.exists(pathname), False)
 
-    def test_remove_not_there(self):
-        pathname = os.path.join(self.directory, self.filename)
-        self.assertEqual(os.path.exists(pathname), True)
-        os.remove(pathname)
-        self.msg.remove()
-        self.assertEqual(os.path.exists(pathname), False)
+#     def test_remove_not_there(self):
+#         pathname = os.path.join(self.directory, self.filename)
+#         self.assertEqual(os.path.exists(pathname), True)
+#         os.remove(pathname)
+#         self.msg.remove()
+#         self.assertEqual(os.path.exists(pathname), False)
 
-    def test_load(self):
-        # Load correct type.
-        self.assertEqual(self.msg.loaded, False)
-        self.msg.load()
-        self.assertEqual(self.msg.loaded, True)
-        self.assertEqual(self.msg.as_string(), spam1.replace("\n", "\r\n"))
+#     def test_load(self):
+#         # Load correct type.
+#         self.assertEqual(self.msg.loaded, False)
+#         self.msg.load()
+#         self.assertEqual(self.msg.loaded, True)
+#         self.assertEqual(self.msg.as_string(), spam1.replace("\n", "\r\n"))
 
-    def test_load_wrong(self):
-        # Load incorrect type.
-        self.msg.file_name = self.wrongname
-        self.assertEqual(self.msg.loaded, False)
-        self.msg.load()
-        self.assertEqual(self.msg.loaded, True)
-        self.assertEqual(self.msg.as_string(), good1.replace("\n", "\r\n"))
+#     def test_load_wrong(self):
+#         # Load incorrect type.
+#         self.msg.file_name = self.wrongname
+#         self.assertEqual(self.msg.loaded, False)
+#         self.msg.load()
+#         self.assertEqual(self.msg.loaded, True)
+#         self.assertEqual(self.msg.as_string(), good1.replace("\n", "\r\n"))
 
-    def test_load_already_loaded(self):
-        # Shouldn't do anything if already loaded.
-        self.msg.file_name = None
-        self.msg.loaded = True
-        # This will raise an error if a load from storage is attempted.
-        self.msg.load()
-
-
-class FileMessageTest(_FileMessageBaseTest):
-    klass = FileMessage
-    wrong_klass = GzipFileMessage
-
-    def test_store(self):
-        def good_as_string():
-            return good1
-        self.msg.as_string = good_as_string
-        self.msg.store()
-        pathname = os.path.join(self.directory, self.filename)
-        with open(pathname) as f:
-            content = f.read()
-        self.assertEqual(content, good1)
+#     def test_load_already_loaded(self):
+#         # Shouldn't do anything if already loaded.
+#         self.msg.file_name = None
+#         self.msg.loaded = True
+#         # This will raise an error if a load from storage is attempted.
+#         self.msg.load()
 
 
-class GzipFileMessageTest(_FileMessageBaseTest):
-    klass = GzipFileMessage
-    wrong_klass = FileMessage
+# class FileMessageTest(_FileMessageBaseTest):
+#     klass = FileMessage
+#     wrong_klass = GzipFileMessage
 
-    def test_store(self):
-        def good_as_string():
-            return good1
-        self.msg.as_string = good_as_string
-        self.msg.store()
-        pathname = os.path.join(self.directory, self.filename)
-        with gzip.open(pathname) as f:
-            content = f.read()
-        self.assertEqual(content, bytes(good1, 'utf-8'))
+#     def test_store(self):
+#         def good_as_string():
+#             return good1
+#         self.msg.as_string = good_as_string
+#         self.msg.store()
+#         pathname = os.path.join(self.directory, self.filename)
+#         with open(pathname) as f:
+#             content = f.read()
+#         self.assertEqual(content, good1)
+
+
+# class GzipFileMessageTest(_FileMessageBaseTest):
+#     klass = GzipFileMessage
+#     wrong_klass = FileMessage
+
+#     def test_store(self):
+#         def good_as_string():
+#             return good1
+#         self.msg.as_string = good_as_string
+#         self.msg.store()
+#         pathname = os.path.join(self.directory, self.filename)
+#         with gzip.open(pathname) as f:
+#             content = f.read()
+#         self.assertEqual(content, bytes(good1, 'utf-8'))
 
 
 class FileCorpusTest(_FileCorpusBaseTest):
@@ -275,64 +276,64 @@ class FileCorpusTest(_FileCorpusBaseTest):
         _FileCorpusBaseTest.setUp(self)
         self.directory = 'fctesthamcorpus'
         self.cache_size = 100
-        self.factory = FileMessageFactory()
-        self.stuff_corpus()
-        self.corpus = FileCorpus(self.factory, self.directory,
-                                 '?', self.cache_size)
+        #self.factory = FileMessageFactory()
+        self._stuff_corpus()
+        self.corpus = FileCorpus(self.directory, '?', self.cache_size)
 
-    def stuff_corpus(self):
+    def _create_and_write(self, message_id, content):
+        msg = message.from_string(content, message_id=message_id)
+        filename = os.path.join(self.directory, msg.id())
+        with open(filename, 'wb') as f:
+            f.write(msg.as_bytes())
+        return msg
+
+    def _stuff_corpus(self):
         """Put messages in the corpus"""
-        i = 0
-        for content in [good1, spam1, malformed1]:
-            self.msg = self.factory.create(str(i), self.directory, content)
-            self.msg.store()
-            i += 1
+        for i, content in enumerate([good1, spam1, malformed1]):
+            self.msg = self._create_and_write(str(i), content)
 
         # Put in a message that won't match the filter.
-        msg = self.factory.create("10", self.directory, good1)
-        msg.store()
-        
-    def test___init__(self):
-        self.assertEqual(self.corpus.directory, self.directory)
-        self.assertEqual(self.corpus.filter, '?')
-        self.assertEqual(self.corpus.cacheSize, self.cache_size)
+        self._create_and_write(str(10), good1)
+
+    # def test___init__(self):
+    #     self.assertEqual(self.corpus.directory, self.directory)
+    #     self.assertEqual(self.corpus.filter, '?')
+    #     #self.assertEqual(self.corpus.cacheSize, self.cache_size)
 
     def test_filter(self):
-        self.assertEqual(len(self.corpus.msgs), 3)
+        self.assertEqual(len(self.corpus), 3)
         # Try again, with all messages.
-        self.corpus = FileCorpus(self.factory, self.directory,
-                                 '*', self.cache_size)
-        self.assertEqual(len(self.corpus.msgs), 4)
+        self.corpus = FileCorpus(self.directory, '*', self.cache_size)
+        self.assertEqual(len(self.corpus), 4)
 
-    def test_makeMessage_no_content(self):
-        key = "testmake"
-        self.corpus.makeMessage(key)
+    # def test_makeMessage_no_content(self):
+    #     key = "testmake"
+    #     self.corpus.make_message(key)
 
-    def test_makeMessage_with_content(self):
-        key = "testmake"
-        content = spam1
-        msg = self.corpus.makeMessage(key, content)
-        self.assertEqual(msg.key(), key)
-        self.assertEqual(msg.as_string(), content.replace("\n", "\r\n"))
+    # def test_makeMessage_with_content(self):
+    #     key = "testmake"
+    #     content = spam1
+    #     msg = self.corpus.make_message(key, content)
+    #     self.assertEqual(msg.key(), key)
+    #     self.assertEqual(msg.as_string(), content.replace("\n", "\r\n"))
 
     def test_addMessage_invalid(self):
         class msg(object):
-            def key(self):
+            def id(self):
                 return 'aa'
         self.assertRaises(ValueError, self.corpus.add_message, msg())
 
     def test_addMessage(self):
-        msg = self.factory.create("9", 'fctestspamcorpus', good1)
+        msg = self._create_and_write('9', good1)
         self.corpus.add_message(msg)
-        self.assertEqual(msg.directory, self.directory)
+        #self.assertEqual(msg.directory, self.directory)
         fn = os.path.join(self.directory, "9")
-        f = open(fn, "rU")
-        content = f.read()
-        f.close()
+        with open(fn, "rU") as f:
+            content = f.read()
         self.assertEqual(content, good1)
 
     def test_removeMessage(self):
-        fn = self.msg.pathname()
+        fn = self.corpus._message_path(self.msg)
         self.assertEqual(os.path.exists(fn), True)
         self.corpus.remove_message(self.msg)
         self.assertEqual(os.path.exists(fn), False)
@@ -357,7 +358,7 @@ class ExpiryFileCorpusTest(_FileCorpusBaseTest):
 
         self.factory = SimpleFactory()
         #self.stuff_corpus()
-        self.corpus = ExpiryFileCorpus(10.0, self.factory, self.directory,
+        self.corpus = ExpiryFileCorpus(10.0, self.directory,
                                        '?', self.cache_size)
 
     @unittest.skip('This fails occasionally due to timing issues...')
@@ -398,21 +399,3 @@ class ExpiryFileCorpusTest(_FileCorpusBaseTest):
         # Check that not expired messages are still there.
         for msg in not_expire:
             self.assertTrue(msg in self.corpus)
-
-
-def suite():
-    suite = unittest.TestSuite()
-    clses = (FileMessageFactoryTest,
-             GzipFileMessageFactoryTest,
-             FileMessageTest,
-             GzipFileMessageTest,
-             FileCorpusTest,
-             ExpiryFileCorpusTest,
-             )
-    for cls in clses:
-        suite.addTest(unittest.makeSuite(cls))
-    return suite
-
-
-if __name__=='__main__':
-    sb_test_support.unittest_main(argv=sys.argv + ['suite'])
