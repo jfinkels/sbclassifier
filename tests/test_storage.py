@@ -11,9 +11,9 @@ import tempfile
 import unittest
 
 from sbclassifier.storage import CDBClassifier
-from sbclassifier.storage import DBDictClassifier
+from sbclassifier.storage import ShelveClassifier
 from sbclassifier.storage import PickledClassifier
-from sbclassifier.storage import ZODBClassifier
+#from sbclassifier.storage import ZODBClassifier
 
 try:
     import cdb
@@ -21,11 +21,11 @@ try:
 except ImportError:
     cdb_is_available = False
 
-try:
-    import ZODB
-    zodb_is_available = True
-except ImportError:
-    zodb_is_available = False
+# try:
+#     import ZODB
+#     zodb_is_available = True
+# except ImportError:
+#     zodb_is_available = False
 
 
 class _StorageTestBase(unittest.TestCase):
@@ -86,6 +86,7 @@ class _StorageTestBase(unittest.TestCase):
     def _checkWordCounts(self, word, expected_ham, expected_spam):
         assert word
         info = self.classifier._wordinfoget(word)
+        print(self.classifier.wordinfo)
         if info is None:
             if expected_ham == expected_spam == 0:
                 return
@@ -168,7 +169,7 @@ class _StorageTestBase(unittest.TestCase):
         self.assertEqual(newrecord.spamcount, 0)
 
         # Reduce the hamcount -- this tickled an excruciatingly subtle
-        # bug in a DBDictClassifier's _wordinfoset, which, at the time
+        # bug in a ShelveClassifier's _wordinfoset, which, at the time
         # this test was written, couldn't actually be provoked by the
         # way _wordinfoset got called by way of learn() and unlearn()
         # methods.  The code implicitly relied on that the record passed
@@ -176,7 +177,7 @@ class _StorageTestBase(unittest.TestCase):
         # in wordinfo[word].
         newrecord.hamcount -= 1
         c._wordinfoset(word, newrecord)
-        # If the bug is present, the DBDictClassifier still believes
+        # If the bug is present, the ShelveClassifier still believes
         # the hamcount is 2.
         self._checkAllWordCounts([(word, 1, 0)], False)
 
@@ -190,7 +191,7 @@ class PickleStorageTestCase(_StorageTestBase):
 
 
 class DBStorageTestCase(_StorageTestBase):
-    StorageClass = DBDictClassifier
+    StorageClass = ShelveClassifier
 
     def _fail_open_best(self, *args):
         raise Exception("No dbm modules available!")
@@ -200,13 +201,13 @@ class DBStorageTestCase(_StorageTestBase):
         from sbclassifier.storage import open_storage
 
         db_name = tempfile.mktemp("nodbmtest")
-        DBDictClassifier_load = DBDictClassifier.load
-        DBDictClassifier.load = self._fail_open_best
+        ShelveClassifier_load = ShelveClassifier.load
+        ShelveClassifier.load = self._fail_open_best
         print("This test will print out an error, which can be ignored.")
         try:
             self.assertRaises(Exception, open_storage, (db_name, "dbm"))
         finally:
-            DBDictClassifier.load = DBDictClassifier_load
+            ShelveClassifier.load = ShelveClassifier_load
 
         for name in glob.glob(db_name+"*"):
             if os.path.isfile(name):
@@ -218,6 +219,6 @@ class CDBStorageTestCase(_StorageTestBase):
     StorageClass = CDBClassifier
 
 
-@unittest.skipUnless(zodb_is_available, 'requires ZODB')
-class ZODBStorageTestCase(_StorageTestBase):
-    StorageClass = ZODBClassifier
+# @unittest.skipUnless(zodb_is_available, 'requires ZODB')
+# class ZODBStorageTestCase(_StorageTestBase):
+#     StorageClass = ZODBClassifier

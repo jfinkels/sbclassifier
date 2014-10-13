@@ -87,6 +87,10 @@ import time
 SPAM = True
 HAM = False
 
+#: Flags that the Trainer will recognise.  These should be or'able integer
+#: values (i.e. 1, 2, 4, 8, etc.).
+NO_TRAINING_FLAG = 1
+
 
 class Corpus:
     '''An observable dictionary of Messages'''
@@ -252,7 +256,7 @@ class ExpiryCorpus:
             timestamp = msg.createTimestamp()
             if timestamp < time.time() - self.expireBefore:
                 logging.debug('message %s has expired', msg.key())
-                from sbclassifier.storage import NO_TRAINING_FLAG
+                #from sbclassifier.storage import NO_TRAINING_FLAG
                 self.removeMessage(msg, observer_flags=NO_TRAINING_FLAG)
             elif timestamp + self.expireBefore < self.expiry_due:
                 self.expiry_due = timestamp + self.expireBefore
