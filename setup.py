@@ -6,7 +6,7 @@ setup(
     #classifiers=[],
     #description='',
     #download_url='',
-    install_requires=['lockfile'],
+    install_requires=['lockfile', 'blinker'],
     #include_package_data=True,
     #keywords=[],
     #license='',

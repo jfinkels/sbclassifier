@@ -84,6 +84,8 @@ import logging
 # import sys           # for output of docstring
 import time
 
+from blinker import signal
+
 SPAM = True
 HAM = False
 
@@ -92,12 +94,25 @@ HAM = False
 NO_TRAINING_FLAG = 1
 
 
+#: A signal that is emitted when a message is added to a corpus.
+#:
+#: Subscribers to this signal receive the corpus object that emitted the
+#: signal, along with a ``message`` keyword argument, whose value contains the
+#: message that was added.
+message_added = signal('message-added')
+
+#: A signal that is emitted when a message is removed from a corpus.
+#:
+#: Subscribers to this signal receive the corpus object that emitted the
+#: signal, along with a ``message`` keyword argument, whose value contains the
+#: message that was removed.
+message_removed = signal('message-removed')
+
+
 class Corpus:
-    '''An observable dictionary of Messages'''
+    """An observable dictionary of Messages"""
 
     def __init__(self, factory, cacheSize=-1):
-        '''Constructor(MessageFactory)'''
-
         # dict of all messages in corpus; value is None if msg not currently
         # loaded
         self.msgs = {}
@@ -105,41 +120,43 @@ class Corpus:
         # iterating msgs
         self.keysInMemory = []
         self.cacheSize = cacheSize  # max number of messages in memory
-        self.observers = []       # observers of this corpus
+        #self.observers = []       # observers of this corpus
         self.factory = factory    # factory for the correct Message subclass
 
-    def addObserver(self, observer):
-        '''Register an observer, which should implement
-        onAddMessage, onRemoveMessage'''
+    # def addObserver(self, observer):
+    #     '''Register an observer, which should implement
+    #     onAddMessage, onRemoveMessage'''
 
-        self.observers.append(observer)
+    #     self.observers.append(observer)
 
-    def addMessage(self, message, observer_flags=0):
+    def addMessage(self, message, do_training=True):
         '''Add a Message to this corpus'''
 
         logging.debug('adding message %s to corpus', message.key())
 
         self.cacheMessage(message)
+        if do_training:
+            message_added.send(self, message=message)
+        # for obs in self.observers:
+        #     # there is no reason that a Corpus observer MUST be a Trainer
+        #     # and so it may very well not be interested in AddMessage events
+        #     # even though right now the only observable events are
+        #     # training related
+        #     if hasattr(obs, "onAddMessage"):
+        #         obs.onAddMessage(message, observer_flags)
 
-        for obs in self.observers:
-            # there is no reason that a Corpus observer MUST be a Trainer
-            # and so it may very well not be interested in AddMessage events
-            # even though right now the only observable events are
-            # training related
-            if hasattr(obs, "onAddMessage"):
-                obs.onAddMessage(message, observer_flags)
-
-    def removeMessage(self, message, observer_flags=0):
+    def removeMessage(self, message, do_training=True):
         '''Remove a Message from this corpus'''
         key = message.key()
         logging.debug('removing message %s from corpus', key)
         self.unCacheMessage(key)
         del self.msgs[key]
-
-        for obs in self.observers:
-            # see comments in event loop in addMessage
-            if hasattr(obs, "onRemoveMessage"):
-                obs.onRemoveMessage(message, observer_flags)
+        if do_training:
+            message_removed.send(self, message=message)
+        # for obs in self.observers:
+        #     # see comments in event loop in addMessage
+        #     if hasattr(obs, "onRemoveMessage"):
+        #         obs.onRemoveMessage(message, observer_flags)
 
     def cacheMessage(self, message):
         '''Add a message to the in-memory cache'''
@@ -256,8 +273,7 @@ class ExpiryCorpus:
             timestamp = msg.createTimestamp()
             if timestamp < time.time() - self.expireBefore:
                 logging.debug('message %s has expired', msg.key())
-                #from sbclassifier.storage import NO_TRAINING_FLAG
-                self.removeMessage(msg, observer_flags=NO_TRAINING_FLAG)
+                self.removeMessage(msg, do_training=False)
             elif timestamp + self.expireBefore < self.expiry_due:
                 self.expiry_due = timestamp + self.expireBefore
 

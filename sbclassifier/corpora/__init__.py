@@ -7,6 +7,8 @@
 # Software Foundation License; for more information, see LICENSE.txt.
 from .base import Corpus
 from .base import ExpiryCorpus
+from .base import message_added
+from .base import message_removed
 from .base import MessageFactory
 from .filesystem import ExpiryFileCorpus
 from .filesystem import FileCorpus

@@ -5,10 +5,11 @@
 #
 # This file is part of sbclassifier, which is licensed under the Python
 # Software Foundation License; for more information, see LICENSE.txt.
-import sys
 import time
 import unittest
 
+from sbclassifier.corpora import message_added
+from sbclassifier.corpora import message_removed
 from sbclassifier.corpora import Corpus
 from sbclassifier.corpora import ExpiryCorpus
 from sbclassifier.corpora import MessageFactory
@@ -53,25 +54,22 @@ Chris
 malformed1 = """From: ta-meyer@ihug.co.nz
 Subject: No body, and no separator"""
 
+
 class simple_msg(object):
     def __init__(self, key):
         self._key = key
         self.creation_time = time.time()
         self.loaded = False
+
     def createTimestamp(self):
         return self.creation_time
+
     def key(self):
         return self._key
+
     def load(self):
         self.loaded = True
 
-class simple_observer(object):
-    # Just want to tell that they have been called, so raise particular
-    # errors.
-    def onAddMessage(self, msg, flags):
-        raise ValueError()
-    def onRemoveMessage(self, msg, flags):
-        raise TypeError()
 
 class CorpusTest(unittest.TestCase):
     def setUp(self):
@@ -83,11 +81,16 @@ class CorpusTest(unittest.TestCase):
         self.assertEqual(self.corpus.cacheSize, self.cacheSize)
         self.assertEqual(self.corpus.msgs, {})
         self.assertEqual(self.corpus.keysInMemory, [])
-        self.assertEqual(self.corpus.observers, [])
         self.assertEqual(self.corpus.factory, self.factory)
 
     def test_addObserver(self):
-        self.corpus.addObserver(simple_observer())
+        @message_added.connect
+        def add_listener(*args, **kw):
+            raise ValueError
+
+        @message_removed.connect
+        def remove_listener(*args, **kw):
+            raise TypeError
         self.assertRaises(ValueError, self.corpus.addMessage,
                           simple_msg(0))
         self.assertRaises(TypeError, self.corpus.removeMessage,
@@ -220,8 +223,8 @@ class ExpiryCorpusTest(unittest.TestCase):
             self.corpus.addMessage(msg)
 
         # Ensure that we don't expire the wrong ones.
-        self.corpus.expireBefore = 0.25
-        time.sleep(0.5)
+        self.corpus.expireBefore = 0.1
+        time.sleep(0.2)
 
         # Put messages in to not expire.
         not_expire = [simple_msg(3), simple_msg(4)]
@@ -238,17 +241,3 @@ class ExpiryCorpusTest(unittest.TestCase):
         # Check that not expired messages are still there.
         for msg in not_expire:
             self.assertEqual(msg in self.corpus, True)
-        
-
-def suite():
-    suite = unittest.TestSuite()
-    clses = (CorpusTest,
-             ExpiryCorpusTest,
-             )
-    for cls in clses:
-        suite.addTest(unittest.makeSuite(cls))
-    return suite
-
-
-if __name__=='__main__':
-    sb_test_support.unittest_main(argv=sys.argv + ['suite'])

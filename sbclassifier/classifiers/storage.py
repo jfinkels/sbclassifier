@@ -32,16 +32,6 @@ Abstract:
     DBDictClassifier is a Classifier class that uses a database
     store.
 
-    Trainer is concrete class that observes a Corpus and trains a
-    Classifier object based upon movement of messages between corpora  When
-    an add message notification is received, the trainer trains the
-    database with the message, as spam or ham as appropriate given the
-    type of trainer (spam or ham).  When a remove message notification
-    is received, the trainer untrains the database as appropriate.
-
-    SpamTrainer and HamTrainer are convenience subclasses of Trainer, that
-    initialize as the appropriate type of Trainer
-
 To Do:
     o Suggestions?
 
@@ -894,83 +884,6 @@ class CDBClassifier(StoredClassifierBase):
 
 #     def is_connected(self):
 #         return self.storage.is_connected()
-
-
-# Flags that the Trainer will recognise.  These should be or'able integer
-# values (i.e. 1, 2, 4, 8, etc.).
-# NO_TRAINING_FLAG = 1
-
-
-# class Trainer(object):
-#     '''Associates a Classifier object and one or more Corpora, \
-#     is an observer of the corpora'''
-
-#     def __init__(self, bayes, is_spam, updateprobs=False):
-#         '''Constructor(Classifier, is_spam(True|False),
-#         updateprobs(True|False)'''
-
-#         self.bayes = bayes
-#         self.is_spam = is_spam
-#         self.updateprobs = updateprobs
-
-#     def onAddMessage(self, message, flags=0):
-#         '''A message is being added to an observed corpus.'''
-#         if not (flags & NO_TRAINING_FLAG):
-#             self.train(message)
-
-#     def train(self, message):
-#         '''Train the database with the message'''
-
-#         logging.debug('training with %s', message.key())
-
-#         self.bayes.learn(message.tokenize(), self.is_spam)
-#         message.setId(message.key())
-#         message.RememberTrained(self.is_spam)
-
-#     def onRemoveMessage(self, message, flags=0):
-#         '''A message is being removed from an observed corpus.'''
-#         # If a message is being expired from the corpus, we do
-#         # *NOT* want to untrain it, because that's not what's happening.
-#         # If this is the case, then flags will include NO_TRAINING_FLAG.
-#         # There are no other flags we currently use.
-#         if not (flags & NO_TRAINING_FLAG):
-#             self.untrain(message)
-
-#     def untrain(self, message):
-#         '''Untrain the database with the message'''
-
-#         logging.debug('untraining with %s', message.key())
-
-#         self.bayes.unlearn(message.tokenize(), self.is_spam)
-# #                           self.updateprobs)
-#         # can raise ValueError if database is fouled.  If this is the case,
-#         # then retraining is the only recovery option.
-#         message.RememberTrained(None)
-
-#     def trainAll(self, corpus):
-#         '''Train all the messages in the corpus'''
-#         for msg in corpus:
-#             self.train(msg)
-
-#     def untrainAll(self, corpus):
-#         '''Untrain all the messages in the corpus'''
-#         for msg in corpus:
-#             self.untrain(msg)
-
-
-# class SpamTrainer(Trainer):
-#     '''Trainer for spam'''
-#     def __init__(self, bayes, updateprobs=False):
-#         '''Constructor'''
-#         Trainer.__init__(self, bayes, True, updateprobs)
-
-
-# class HamTrainer(Trainer):
-#     '''Trainer for ham'''
-#     def __init__(self, bayes, updateprobs=False):
-#         '''Constructor'''
-#         Trainer.__init__(self, bayes, False, updateprobs)
-
 
 # class NoSuchClassifierError(Exception):
 #     def __init__(self, invalid_name):

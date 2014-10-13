@@ -92,7 +92,7 @@ import email.generator
 from sbclassifier.classifiers.storage import PERSISTENT_STORAGE_FILE
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
-from sbclassifier.tokenizer import tokenize
+#from sbclassifier.tokenizer import tokenize
 from sbclassifier.safepickle import pickle_read, pickle_write
 
 from io import StringIO
@@ -466,8 +466,8 @@ class Message(email.message.Message):
     def getId(self):
         return self.id
 
-    def tokenize(self):
-        return tokenize(self)
+    # def tokenize(self):
+    #     return tokenize(self)
 
     def _force_CRLF(self, data):
         """Make sure data uses CRLF for line termination."""

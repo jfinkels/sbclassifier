@@ -137,9 +137,9 @@ class MessageTest(unittest.TestCase):
         self.msg.id = id
         self.assertEqual(self.msg.getId(), id)
 
-    def test_tokenize(self):
-        toks = self.msg.tokenize()
-        self.assertEqual(tuple(tokenize(spam1)), tuple(toks))
+    # def test_tokenize(self):
+    #     toks = self.msg.tokenize()
+    #     self.assertEqual(tuple(tokenize(spam1)), tuple(toks))
 
     def test_force_CRLF(self):
         self.assertTrue('\r' not in good1)
