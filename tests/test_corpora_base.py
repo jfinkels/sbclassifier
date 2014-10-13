@@ -1,4 +1,4 @@
-# test_corpora.py - unit tests for the sbclassifier.corpora.base module
+# test_corpora_base.py - unit tests for the sbclassifier.corpora.base module
 #
 # Copyright (C) 2002-2013 Python Software Foundation; All Rights Reserved
 # Copyright 2014 Jeffrey Finkelstein.
@@ -11,7 +11,6 @@ import unittest
 from sbclassifier.corpora import message_added
 from sbclassifier.corpora import message_removed
 from sbclassifier.corpora import Corpus
-from sbclassifier.corpora import ExpiryCorpus
 from sbclassifier.corpora import MessageFactory
 
 # One example of spam and one of ham - both are used to train, and are
@@ -91,153 +90,111 @@ class CorpusTest(unittest.TestCase):
         @message_removed.connect
         def remove_listener(*args, **kw):
             raise TypeError
-        self.assertRaises(ValueError, self.corpus.addMessage,
+        self.assertRaises(ValueError, self.corpus.add_message,
                           simple_msg(0))
-        self.assertRaises(TypeError, self.corpus.removeMessage,
+        self.assertRaises(TypeError, self.corpus.remove_message,
                           simple_msg(1))
 
     def test_addMessage(self):
         msg = simple_msg(0)
         self.assertEqual(self.corpus.get(0), None)
-        self.corpus.addMessage(msg)
+        self.corpus.add_message(msg)
         self.assertEqual(self.corpus[0], msg)
 
     def test_removeMessage(self):
         msg = simple_msg(0)
         self.assertEqual(self.corpus.get(0), None)
-        self.corpus.addMessage(msg)
+        self.corpus.add_message(msg)
         self.assertEqual(self.corpus[0], msg)
-        self.corpus.removeMessage(msg)
+        self.corpus.remove_message(msg)
         self.assertEqual(self.corpus.get(0), None)
 
     def test_cacheMessage(self):
         msg = simple_msg(0)
-        self.corpus.cacheMessage(msg)
+        self.corpus.cache_message(msg)
         self.assertEqual(self.corpus.msgs[0], msg)
         self.assert_(0 in self.corpus.keysInMemory)
 
     def test_flush_cache(self):
         self.corpus.cacheSize = 1
         msg = simple_msg(0)
-        self.corpus.cacheMessage(msg)
+        self.corpus.cache_message(msg)
         self.assertEqual(self.corpus.msgs[0], msg)
         self.assert_(0 in self.corpus.keysInMemory)
         msg = simple_msg(1)
-        self.corpus.cacheMessage(msg)
+        self.corpus.cache_message(msg)
         self.assertEqual(self.corpus.msgs[1], msg)
         self.assert_(1 in self.corpus.keysInMemory)
         self.assert_(0 not in self.corpus.keysInMemory)
 
     def test_unCacheMessage(self):
         msg = simple_msg(0)
-        self.corpus.cacheMessage(msg)
+        self.corpus.cache_message(msg)
         self.assertEqual(self.corpus.msgs[0], msg)
         self.assert_(0 in self.corpus.keysInMemory)
-        self.corpus.unCacheMessage(msg)
+        self.corpus.uncache_message(msg)
         self.assert_(0 in self.corpus.keysInMemory)
 
-    def test_takeMessage(self):
-        other_corpus = Corpus(self.factory, self.cacheSize)
-        msg = simple_msg(0)
-        other_corpus.addMessage(msg)
-        self.assertEqual(self.corpus.get(0), None)
-        self.corpus.takeMessage(0, other_corpus)
-        self.assertEqual(msg.loaded, True)
-        self.assertEqual(other_corpus.get(0), None)
-        self.assertEqual(self.corpus.get(0), msg)
+    # def test_takeMessage(self):
+    #     other_corpus = Corpus(self.factory, self.cacheSize)
+    #     msg = simple_msg(0)
+    #     other_corpus.add_message(msg)
+    #     self.assertEqual(self.corpus.get(0), None)
+    #     self.corpus.take_message(0, other_corpus)
+    #     self.assertEqual(msg.loaded, True)
+    #     self.assertEqual(other_corpus.get(0), None)
+    #     self.assertEqual(self.corpus.get(0), msg)
 
     def test_get(self):
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertEqual(self.corpus.get(0).key(), 0)
 
     def test_get_fail(self):
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertEqual(self.corpus.get(4), None)
 
     def test_get_default(self):
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertEqual(self.corpus.get(4, "test"), "test")
 
     def test___getitem__(self):
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertEqual(self.corpus[0].key(), 0)
 
     def test___getitem___fail(self):
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertRaises(KeyError, self.corpus.__getitem__, 4)
 
     def test_keys(self):
         self.assertEqual(list(self.corpus.keys()), [])
         ids = [0, 1, 2]
         for id in ids:
-            self.corpus.addMessage(simple_msg(id))
+            self.corpus.add_message(simple_msg(id))
         self.assertEqual(list(self.corpus.keys()), ids)
 
     def test___iter__(self):
         self.assertEqual(tuple(self.corpus), ())
         msgs = (simple_msg(0), simple_msg(1), simple_msg(2))
         for msg in msgs:
-            self.corpus.addMessage(msg)
+            self.corpus.add_message(msg)
         self.assertEqual(tuple(self.corpus), msgs)
 
     def test_makeMessage_no_content(self):
         key = "testmessage"
-        self.assertRaises(NotImplementedError, self.corpus.makeMessage, key)
+        self.assertRaises(NotImplementedError, self.corpus.make_message, key)
 
     def test_makeMessage_with_content(self):
         key = "testmessage"
         content = good1
-        self.assertRaises(NotImplementedError, self.corpus.makeMessage,
+        self.assertRaises(NotImplementedError, self.corpus.make_message,
                           key, content)
-
-
-class ExpiryCorpusTest(unittest.TestCase):
-    def setUp(self):
-        class Mixed(Corpus, ExpiryCorpus):
-            def __init__(self, expireBefore, factory, cacheSize):
-                Corpus.__init__(self, factory, cacheSize)
-                ExpiryCorpus.__init__(self, expireBefore)
-        self.factory = MessageFactory()
-        self.cacheSize = 100
-        self.expireBefore = 10.0
-        self.corpus = Mixed(self.expireBefore, self.factory,
-                            self.cacheSize)
-
-    def test___init___expiry(self):
-        self.assertEqual(self.corpus.expireBefore, self.expireBefore)
-
-    def test_removeExpiredMessages(self):
-        # Put messages in to expire.
-        expire = [simple_msg(1), simple_msg(2)]
-        for msg in expire:
-            self.corpus.addMessage(msg)
-
-        # Ensure that we don't expire the wrong ones.
-        self.corpus.expireBefore = 0.1
-        time.sleep(0.2)
-
-        # Put messages in to not expire.
-        not_expire = [simple_msg(3), simple_msg(4)]
-        for msg in not_expire:
-            self.corpus.addMessage(msg)
-
-        # Run expiry.
-        self.corpus.removeExpiredMessages()
-
-        # Check that expired messages are gone.
-        for msg in expire:
-            self.assertEqual(msg in self.corpus, False)
-
-        # Check that not expired messages are still there.
-        for msg in not_expire:
-            self.assertEqual(msg in self.corpus, True)

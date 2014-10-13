@@ -57,7 +57,6 @@ import time
 import stat
 
 from sbclassifier.corpora.base import Corpus
-from sbclassifier.corpora.base import ExpiryCorpus
 from sbclassifier.corpora.base import MessageFactory
 
 VERBOSE = True
@@ -98,28 +97,24 @@ class FileCorpus(Corpus):
         msg = self.factory.create(key, self.directory, content)
         return msg
 
-    def addMessage(self, message, observer_flags=0):
+    def add_message(self, message, *args, **kw):
         '''Add a Message to this corpus'''
         if not fnmatch.fnmatch(message.key(), self.filter):
             raise ValueError
-
         logging.debug('adding %s to corpus', message.key())
-
         message.directory = self.directory
         message.store()
         # superclass processing *MUST* be done
         # perform superclass processing *LAST!*
-        Corpus.addMessage(self, message, observer_flags)
+        super().add_message(message, *args, **kw)
 
-    def removeMessage(self, message, observer_flags=0):
+    def remove_message(self, message, *args, **kw):
         '''Remove a Message from this corpus'''
         logging.debug('removing %s from corpus', message.key())
-
         message.remove()
-
         # superclass processing *MUST* be done
         # perform superclass processing *LAST!*
-        Corpus.removeMessage(self, message, observer_flags)
+        super().remove_message(message, *args, **kw)
 
     def __repr__(self):
         '''Instance as a representative string'''
@@ -142,16 +137,44 @@ class FileCorpus(Corpus):
              nummsgs, s, lst)
 
 
-class ExpiryFileCorpus(ExpiryCorpus, FileCorpus):
+class ExpiryFileCorpus(FileCorpus):
     '''FileCorpus of "young" file system artifacts'''
 
     def __init__(self, expireBefore, factory, directory, filter='*',
                  cacheSize=250):
         """Constructor(FileMessageFactory, corpus directory name, fnmatch
         filter"""
+        self.expireBefore = expireBefore
+        # Only check for expiry after this time.
+        self.expiry_due = time.time()
+        super().__init__(factory, directory, filter, cacheSize)
 
-        ExpiryCorpus.__init__(self, expireBefore)
-        FileCorpus.__init__(self, factory, directory, filter, cacheSize)
+    def remove_expired_messages(self):
+        '''Kill expired messages'''
+
+        # Only check for expired messages after this time.  We set this to the
+        # closest-to-expiry message's expiry time, so that this method can be
+        # called very regularly, and most of the time it will just immediately
+        # return.
+        if time.time() < self.expiry_due:
+            return
+
+        self.expiry_due = time.time() + self.expireBefore
+        # Iterate over a copy of the list because the keys will be modified
+        # during the loop.
+        for key in list(self.keys()):
+            msg = self[key]
+            timestamp = msg.createTimestamp()
+            print('key:', key)
+            print('timestamp:', timestamp)
+            print('ts + expbefore:', timestamp + self.expireBefore)
+            print('time.time:', time.time())
+            print('expiry due:', self.expiry_due)
+            if timestamp + self.expireBefore < time.time():
+                logging.debug('message %s has expired', msg.key())
+                self.remove_message(msg, do_training=False)
+            elif timestamp + self.expireBefore < self.expiry_due:
+                self.expiry_due = timestamp + self.expireBefore
 
 
 class FileMessage(object):
@@ -293,7 +316,6 @@ class FileMessage(object):
 
     def createTimestamp(self):
         '''Return the create timestamp for the file'''
-
         # make sure we don't die if someone has
         # removed the file out from underneath us
         try:
@@ -302,7 +324,6 @@ class FileMessage(object):
             ctime = time.time()
         else:
             ctime = stats[stat.ST_CTIME]
-
         return ctime
 
 

@@ -120,162 +120,100 @@ class Corpus:
         # iterating msgs
         self.keysInMemory = []
         self.cacheSize = cacheSize  # max number of messages in memory
-        #self.observers = []       # observers of this corpus
         self.factory = factory    # factory for the correct Message subclass
 
-    # def addObserver(self, observer):
-    #     '''Register an observer, which should implement
-    #     onAddMessage, onRemoveMessage'''
+    def add_message(self, message, do_training=True):
+        """Adds the specified message to this corpus.
 
-    #     self.observers.append(observer)
+        If `do_training` is ``True``, the :data:`message_added` signal is
+        emitted.
 
-    def addMessage(self, message, do_training=True):
-        '''Add a Message to this corpus'''
-
+        """
         logging.debug('adding message %s to corpus', message.key())
-
-        self.cacheMessage(message)
+        self.cache_message(message)
         if do_training:
             message_added.send(self, message=message)
-        # for obs in self.observers:
-        #     # there is no reason that a Corpus observer MUST be a Trainer
-        #     # and so it may very well not be interested in AddMessage events
-        #     # even though right now the only observable events are
-        #     # training related
-        #     if hasattr(obs, "onAddMessage"):
-        #         obs.onAddMessage(message, observer_flags)
 
-    def removeMessage(self, message, do_training=True):
-        '''Remove a Message from this corpus'''
+    def remove_message(self, message, do_training=True):
+        """Removes the specified message from this corpus.
+
+        If `do_training` is ``True``, the :data:`message_removed` signal is
+        emitted.
+
+        """
         key = message.key()
         logging.debug('removing message %s from corpus', key)
-        self.unCacheMessage(key)
+        self.uncache_message(key)
         del self.msgs[key]
         if do_training:
             message_removed.send(self, message=message)
-        # for obs in self.observers:
-        #     # see comments in event loop in addMessage
-        #     if hasattr(obs, "onRemoveMessage"):
-        #         obs.onRemoveMessage(message, observer_flags)
 
-    def cacheMessage(self, message):
-        '''Add a message to the in-memory cache'''
+    def cache_message(self, message):
+        """Adds a message to the in-memory cache."""
         # This method should probably not be overridden
         key = message.key()
-
         logging.debug('placing %s in corpus cache', key)
-
         self.msgs[key] = message
-
         # Here is where we manage the in-memory cache size...
         self.keysInMemory.append(key)
-
         if self.cacheSize > 0:       # performance optimization
             if len(self.keysInMemory) > self.cacheSize:
                 keyToFlush = self.keysInMemory[0]
-                self.unCacheMessage(keyToFlush)
+                self.uncache_message(keyToFlush)
 
-    def unCacheMessage(self, key):
-        '''Remove a message from the in-memory cache'''
+    def uncache_message(self, key):
+        """Removes the message with the specified key from the in-memory cache.
+
+        """
         # This method should probably not be overridden
-
         logging.debug('Flushing %s from corpus cache', key)
-
         try:
             ki = self.keysInMemory.index(key)
         except ValueError:
             pass
         else:
             del self.keysInMemory[ki]
-
         self.msgs[key] = None
 
-    def takeMessage(self, key, fromcorpus, fromCache=False):
-        '''Move a Message from another corpus to this corpus'''
-        msg = fromcorpus[key]
-        msg.load()  # ensure that the substance has been loaded
-        # Remove needs to be first, because add changes the directory
-        # of the message, and so remove won't work then.
-        fromcorpus.removeMessage(msg)
-        self.addMessage(msg)
+    # def takeMessage(self, key, fromcorpus, fromCache=False):
+    #     '''Move a Message from another corpus to this corpus'''
+    #     msg = fromcorpus[key]
+    #     msg.load()  # ensure that the substance has been loaded
+    #     # Remove needs to be first, because add changes the directory
+    #     # of the message, and so remove won't work then.
+    #     fromcorpus.removeMessage(msg)
+    #     self.addMessage(msg)
+
+    def make_message(self, key, content=None):
+        # This method will likely be overridden
+        return self.factory.create(key, content)
 
     def get(self, key, default=None):
-        if self.msgs.get(key, "") == "":
+        if key not in self.msgs:
             return default
-        else:
-            return self[key]
+        return self[key]
 
     def __getitem__(self, key):
-        '''Corpus is a dictionary'''
-        amsg = self.msgs.get(key, "")
-
-        if amsg == "":
-            raise KeyError(key)
-
+        amsg = self.msgs[key]
         if amsg is None:
-            amsg = self.makeMessage(key)     # lazy init, saves memory
-            self.cacheMessage(amsg)
-
+            amsg = self.make_message(key)     # lazy init, saves memory
+            self.cache_message(amsg)
         return amsg
 
     def keys(self):
-        '''Message keys in the Corpus'''
         return self.msgs.keys()
 
-    def __contains__(self, other):
-        return other in self.msgs.values()
+    def __contains__(self, message):
+        return message in self.msgs.values()
 
     def __iter__(self):
-        '''Corpus is iterable'''
-        for key in self.keys():
-            yield self[key]
+        return iter(self.msgs.values())
 
     def __str__(self):
-        '''Instance as a printable string'''
-        return self.__repr__()
+        return repr(self)
 
     def __repr__(self):
-        '''Instance as a representative string'''
         raise NotImplementedError
-
-    def makeMessage(self, key, content=None):
-        '''Call the factory to make a message'''
-
-        # This method will likely be overridden
-        msg = self.factory.create(key, content)
-
-        return msg
-
-
-class ExpiryCorpus:
-    '''Mixin Class - Corpus of "young" file system artifacts'''
-
-    def __init__(self, expireBefore):
-        self.expireBefore = expireBefore
-        # Only check for expiry after this time.
-        self.expiry_due = time.time()
-
-    def removeExpiredMessages(self):
-        '''Kill expired messages'''
-
-        # Only check for expired messages after this time.  We set this to the
-        # closest-to-expiry message's expiry time, so that this method can be
-        # called very regularly, and most of the time it will just immediately
-        # return.
-        if time.time() < self.expiry_due:
-            return
-
-        self.expiry_due = time.time() + self.expireBefore
-        # Iterate over a copy of the list because the keys will be modified
-        # during the loop.
-        for key in list(self.keys()):
-            msg = self[key]
-            timestamp = msg.createTimestamp()
-            if timestamp < time.time() - self.expireBefore:
-                logging.debug('message %s has expired', msg.key())
-                self.removeMessage(msg, do_training=False)
-            elif timestamp + self.expireBefore < self.expiry_due:
-                self.expiry_due = timestamp + self.expireBefore
 
 
 class MessageFactory(object):
