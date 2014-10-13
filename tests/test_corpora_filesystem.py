@@ -12,7 +12,6 @@ import gzip
 import errno
 import unittest
 
-from sbclassifier import storage
 from sbclassifier.corpora import ExpiryFileCorpus
 from sbclassifier.corpora import FileCorpus
 from sbclassifier.corpora import FileMessage

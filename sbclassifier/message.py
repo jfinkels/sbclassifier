@@ -89,8 +89,7 @@ import email.parser
 import email.header
 import email.generator
 
-from sbclassifier import storage
-from sbclassifier.storage import PERSISTENT_STORAGE_FILE
+from sbclassifier.classifiers.storage import PERSISTENT_STORAGE_FILE
 from sbclassifier.classifiers.constants import HAM_CUTOFF
 from sbclassifier.classifiers.constants import SPAM_CUTOFF
 from sbclassifier.tokenizer import tokenize

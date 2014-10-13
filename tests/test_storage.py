@@ -10,10 +10,10 @@ import os
 import tempfile
 import unittest
 
-from sbclassifier.storage import CDBClassifier
-from sbclassifier.storage import ShelveClassifier
-from sbclassifier.storage import PickledClassifier
-#from sbclassifier.storage import ZODBClassifier
+from sbclassifier.classifiers.storage import CDBClassifier
+from sbclassifier.classifiers.storage import ShelveClassifier
+from sbclassifier.classifiers.storage import PickledClassifier
+#from sbclassifier.classifiers.storage import ZODBClassifier
 
 try:
     import cdb
