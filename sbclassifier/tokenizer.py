@@ -7,7 +7,6 @@
 # Software Foundation License; for more information, see LICENSE.txt.
 """Module to tokenize email messages for spam filtering."""
 
-import email
 import email.message
 import email.header
 import email.utils
@@ -24,7 +23,6 @@ import binascii
 
 from sbclassifier.dnsutils import dns_lookup
 from sbclassifier.dnsutils import reverse_dns_lookup
-from sbclassifier.mboxutils import get_message
 from sbclassifier.strippers import UUencodeStripper
 from sbclassifier.strippers import URLStripper
 from sbclassifier.strippers import StyleStripper
@@ -1126,17 +1124,13 @@ class Tokenizer:
     def __init__(self):
         self.basic_skip = [re.compile(s) for s in BASIC_HEADER_SKIP]
 
-    def get_message(self, obj):
-        return get_message(obj)
-
     @convert_to_bytes
-    def __call__(self, obj, basic_header_tokenize=BASIC_HEADER_TOKENIZE,
+    def __call__(self, message, basic_header_tokenize=BASIC_HEADER_TOKENIZE,
                  basic_header_tokenize_only=BASIC_HEADER_TOKENIZE_ONLY):
-        msg = self.get_message(obj)
-        for tok in self.tokenize_headers(msg):
-            yield tok
-        for tok in self.tokenize_body(msg):
-            yield tok
+        if isinstance(message, str):
+            message = email.message_from_string(message)
+        return itertools.chain(self.tokenize_headers(message),
+                               self.tokenize_body(message))
 
     def tokenize_headers(self, msg,
                          basic_header_tokenize=BASIC_HEADER_TOKENIZE,
