@@ -146,6 +146,11 @@ CRLF_RE = re.compile(r'\r\n|\r|\n')
 Classification = Enum('Classification', 'spam ham unsure')
 
 
+def from_path(filename, message_id=None):
+    with open(filename, 'rb') as f:
+        return from_bytes(f.read(), message_id)
+
+
 def from_bytes(b, message_id=None):
     message = email.message_from_bytes(b, _class=Message)
     if message_id is not None:

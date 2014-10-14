@@ -11,6 +11,7 @@ import unittest
 from sbclassifier.corpora import message_added
 from sbclassifier.corpora import message_removed
 from sbclassifier.corpora import Corpus
+from sbclassifier.corpora.caches import NaiveCache
 #from sbclassifier.corpora import MessageFactory
 
 # One example of spam and one of ham - both are used to train, and are
@@ -74,7 +75,8 @@ class CorpusTest(unittest.TestCase):
     def setUp(self):
         #self.factory = MessageFactory()
         self.cacheSize = 100
-        self.corpus = Corpus(self.cacheSize)
+        self.cache = NaiveCache(self.cacheSize)
+        self.corpus = Corpus(self.cache)
 
     # def test___init__(self):
     #     self.assertEqual(self.corpus.cache_size, self.cacheSize)

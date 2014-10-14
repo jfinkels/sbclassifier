@@ -5,7 +5,12 @@
 #
 # This file is part of sbclassifier, which is licensed under the Python
 # Software Foundation License; for more information, see LICENSE.txt.
+import fnmatch
 import logging
+import os
+import os.path
+
+from sbclassifier.message import from_path
 
 #: Infinity; used to indicate no upper bound on the size of a cache.
 INFINITY = float('inf')
@@ -104,3 +109,70 @@ class NaiveCache(Cache):
             self._keys.pop(ki)
         # TODO should this set the key to None, or remove it entirely?
         return self.data.pop(key, None)
+
+
+class FileCache(NaiveCache):
+    # This is essentially a two-level cache: one level is the dictionary in
+    # memory, and the second level is the files stored on disk.
+
+    def __init__(self, directory, namefilter, *args, **kw):
+        super().__init__(*args, **kw)
+        self.directory = directory
+        # Only allow messages whose IDs match the specified filter.
+        self.namefilter = namefilter
+        # Maintain a counter of the number of messages currently stored in the
+        # directory. Scan the directory for existing message files.
+        self.num_files = len(list(iter(self)))
+
+    def _is_message(self, filename):
+        return (os.path.isfile(os.path.join(self.directory, filename))
+                and fnmatch.fnmatch(filename, self.namefilter))
+
+    def _message_from_path(self, filename, *args, **kw):
+        return from_path(os.path.join(self.directory, filename), *args, **kw)
+
+    def __len__(self):
+        return self.num_files
+
+    def __iter__(self):
+        return self.keys()
+
+    def __getitem__(self, key):
+        if key in self.data:
+            return self.data[key]
+        if key in os.listdir(self.directory) and self._is_message(key):
+            return self._message_from_path(key)
+        raise KeyError('{} not in cache or directory'.format(key))
+
+    def keys(self):
+        return (f for f in os.listdir(self.directory) if self._is_message(f))
+
+    def values(self):
+        # Need to recreate each message object from the files.
+        return (self._message_from_path(f, message_id=f) for f in self.keys())
+
+    def put(self, key, value):
+        if not fnmatch.fnmatch(key, self.namefilter):
+            msg = 'Message {} does not match filter {}'.format(key,
+                                                               self.namefilter)
+            raise ValueError(msg)
+        super().put(key, value)
+        logging.debug('Storing %s to file', key)
+        with open(os.path.join(self.directory, key), 'wb') as f:
+            f.write(value.as_bytes())
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def pop(self, key):
+        result = super().pop(key)
+        logging.debug('Removing file %s', key)
+        path = os.path.join(self.directory, key)
+        try:
+            os.remove(path)
+        except OSError:
+            logging.error('file %s cannot be deleted', path)
+        return result

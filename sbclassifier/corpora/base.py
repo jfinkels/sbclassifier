@@ -130,17 +130,14 @@ class Corpus:
         def on_message_added(corpus, message):
             print('Message {} was added to corpus {}'.format(message, corpus))
 
+
+    `cache` is the cache to use for caching messages accessed within this
+    corpus. If not specified, a default :class:`NaiveCache` will be used.
+
     """
 
-    #: The subclass of :class:`Cache` to which messages will be added and
-    #: removed when the :meth:`add_message` and :meth:`remove_message` methods
-    #: are called.
-    #:
-    #: Subclasses of :class:`Corpus` can specify a different cache class here.
-    CacheClass = NaiveCache
-
-    def __init__(self, cache_size=INFINITY):
-        self.message_cache = self.CacheClass(cache_size)
+    def __init__(self, cache=None):
+        self.message_cache = cache or NaiveCache(max_size=INFINITY)
         # dict of all messages in corpus; value is None if msg not currently
         # loaded
         #self.msgs = {}

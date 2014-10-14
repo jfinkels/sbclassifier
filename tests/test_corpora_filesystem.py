@@ -333,7 +333,7 @@ class FileCorpusTest(_FileCorpusBaseTest):
         self.assertEqual(content, good1)
 
     def test_removeMessage(self):
-        fn = self.corpus._message_path(self.msg)
+        fn = os.path.join(self.directory, self.msg.id())
         self.assertEqual(os.path.exists(fn), True)
         self.corpus.remove_message(self.msg)
         self.assertEqual(os.path.exists(fn), False)
@@ -344,19 +344,6 @@ class ExpiryFileCorpusTest(_FileCorpusBaseTest):
         _FileCorpusBaseTest.setUp(self)
         self.cache_size = 100
         self.directory = 'fctesthamcorpus'
-
-        class SimpleFileMessage(FileMessage):
-            def __init__(self, *args, **kw):
-                super().__init__(*args, **kw)
-                self.creation_time = time.time()
-
-            def creationTime(self):
-                return self.creation_time
-
-        class SimpleFactory(FileMessageFactory):
-            klass = SimpleFileMessage
-
-        self.factory = SimpleFactory()
         #self.stuff_corpus()
         self.corpus = ExpiryFileCorpus(10.0, self.directory,
                                        '?', self.cache_size)

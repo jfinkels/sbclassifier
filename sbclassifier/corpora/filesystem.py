@@ -53,100 +53,16 @@ import time
 
 from sbclassifier.message import from_bytes as message_from_bytes
 from sbclassifier.corpora.base import Corpus
+from sbclassifier.corpora.caches import FileCache
 
 VERBOSE = True
-DEFAULT_CACHE_SIZE = 2 ** 8
 
 
-# TODO I think this should just be implemented by creating a FileCache class, a
-# subclass of Cache, that simply stores messages on the filesystem.
 class FileCorpus(Corpus):
 
-    def __init__(self, directory, filter='*', cache_size=DEFAULT_CACHE_SIZE):
-        super().__init__(cache_size)
-
-        self.directory = directory
-        self.filter = filter
-
-        # This assumes that the directory exists.  A horrible death occurs
-        # otherwise. We *could* simply create it, but that will likely only
-        # mask errors.
-        #
-        # This will not pick up any changes to the corpus that are made through
-        # the file system. The key list is established in __init__, and if
-        # anybody stores files in the directory, even if they match the filter,
-        # they won't make it into the key list.  The same problem exists if
-        # anybody removes files. This *could* be a problem.  If so, we can
-        # maybe override the keys() method to account for this, but there would
-        # be training side-effects...  The short of it is that corpora that are
-        # managed by FileCorpus should *only* be managed by FileCorpus (at
-        # least for now).  External changes that must be made to the corpus
-        # should for the moment be handled by a complete retraining.
-        for filename in os.listdir(directory):
-            if fnmatch.fnmatch(filename, filter):
-                self._load_message(filename)
-
-    # def makeMessage(self, key, content=None):
-    #     '''Ask our factory to make a Message'''
-    #     msg = self.factory.create(key, self.directory, content)
-    #     return msg
-
-    def _message_path(self, message):
-        """Returns the path to the specified message, relative to the directory
-        specified in the constructor of this class.
-
-        `message` is an instance of :class:`Message`.
-
-        """
-        return os.path.join(self.directory, message.id())
-
-    def _message_path_from_id(self, message_id):
-        return os.path.join(self.directory, message_id)
-
-    def _load_message(self, filename):
-        """Loads a message from the filesystem into the in-memory cache."""
-        fullpath = self._message_path_from_id(filename)
-        with open(fullpath, 'rb') as f:
-            message = message_from_bytes(f.read(), message_id=filename)
-        # The key for this file in the cache is the filename.
-        self.message_cache.put(filename, message)
-
-    def add_message(self, message, message_id=None, *args, **kw):
-        # First, store the message on the filesystem. Then call the
-        # add_message() method in the superclass. The message.key() is assumed
-        # to be a filename, and the message is stored at that location.
-        key = message.id() if message_id is None else message_id
-        if not fnmatch.fnmatch(key, self.filter):
-            msg = 'Message {} does not match filter {}'.format(key,
-                                                               self.filter)
-            raise ValueError(msg)
-        logging.debug('writing message %s to file', key)
-        # TODO this is not safe! the message may have a malicious key (for
-        # example, a key containing '../')...
-        filename = self._message_path(message)
-        with open(filename, 'wb') as f:
-            f.write(message.as_bytes())
-        # superclass processing *MUST* be done *LAST!*.
-        super().add_message(message, key, *args, **kw)
-
-    def remove_message(self, message, *args, **kw):
-        """Removes the specified message from the corpus and from the
-        filesystem as well.
-
-        """
-        key = message.id()
-        logging.debug('deleting message file %s', key)
-        filename = self._message_path(message)
-        try:
-            os.remove(filename)
-        except OSError as e:
-            # The file probably isn't there anymore.  Maybe a virus
-            # protection program got there first?
-            logging.error('file %s cannot be deleted: %s', filename,
-                          e.strerror)
-        # superclass processing *MUST* be done
-        # perform superclass processing *LAST!*
-        super().remove_message(message, *args, **kw)
+    def __init__(self, directory, namefilter='*', cache_size=256):
+        cache = FileCache(directory, namefilter, max_size=cache_size)
+        super().__init__(cache=cache)
 
     def __repr__(self):
         nummsgs = len(self)
