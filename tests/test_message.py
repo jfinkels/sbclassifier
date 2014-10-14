@@ -23,8 +23,8 @@ from sbclassifier.message import TRAINED_HEADER_NAME
 from sbclassifier.message import THERMOSTAT_HEADER_NAME
 from sbclassifier.message import insert_exception_header
 from sbclassifier.message import Message
-from sbclassifier.messageinfo import MessageInfoDB
-from sbclassifier.messageinfo import MessageInfoPickle
+#from sbclassifier.messageinfo import MessageInfoDB
+#from sbclassifier.messageinfo import MessageInfoPickle
 # from sbclassifier.message import SBHeaderMessage
 from sbclassifier.tokenizer import tokenize
 
@@ -539,153 +539,153 @@ class SBHeaderMessageTest(unittest.TestCase):
             self.msg.replace_header(headername, header)
 
 
-@unittest.skip('hey')
-class MessageInfoBaseTest(unittest.TestCase):
-    def setUp(self):
-        self.databasefile = tempfile.NamedTemporaryFile()
-        self.db = self.klass(self.databasefile.name, self.mode)
+# @unittest.skip('hey')
+# class MessageInfoBaseTest(unittest.TestCase):
+#     def setUp(self):
+#         self.databasefile = tempfile.NamedTemporaryFile()
+#         self.db = self.klass(self.databasefile.name, self.mode)
 
-    def test_mode(self):
-        self.assertEqual(self.mode, self.db.mode)
+#     def test_mode(self):
+#         self.assertEqual(self.mode, self.db.mode)
 
-    def test_load_msg_missing(self):
-        msg = email.message_from_string(good1, _class=Message)
-        msg.id = "Test"
-        dummy_values = "a", "b"
-        msg.c, msg.t = dummy_values
-        self.db.load_msg(msg)
-        self.assertEqual((msg.c, msg.t), dummy_values)
+#     def test_load_msg_missing(self):
+#         msg = email.message_from_string(good1, _class=Message)
+#         msg.id = "Test"
+#         dummy_values = "a", "b"
+#         msg.c, msg.t = dummy_values
+#         self.db.load_msg(msg)
+#         self.assertEqual((msg.c, msg.t), dummy_values)
 
-    def test_load_msg_compat(self):
-        msg = email.message_from_string(good1, _class=Message)
-        msg.id = "Test"
-        dummy_values = "a", "b"
-        self.db.db[msg.id] = dummy_values
-        self.db.load_msg(msg)
-        self.assertEqual((msg.c, msg.t), dummy_values)
+#     def test_load_msg_compat(self):
+#         msg = email.message_from_string(good1, _class=Message)
+#         msg.id = "Test"
+#         dummy_values = "a", "b"
+#         self.db.db[msg.id] = dummy_values
+#         self.db.load_msg(msg)
+#         self.assertEqual((msg.c, msg.t), dummy_values)
 
-    def test_load_msg(self):
-        msg = email.message_from_string(good1, _class=Message)
-        msg.id = "Test"
-        dummy_values = [('a', 1), ('b', 2)]
-        self.db.db[msg.id] = dummy_values
-        self.db.load_msg(msg)
-        for att, val in dummy_values:
-            self.assertEqual(getattr(msg, att), val)
+#     def test_load_msg(self):
+#         msg = email.message_from_string(good1, _class=Message)
+#         msg.id = "Test"
+#         dummy_values = [('a', 1), ('b', 2)]
+#         self.db.db[msg.id] = dummy_values
+#         self.db.load_msg(msg)
+#         for att, val in dummy_values:
+#             self.assertEqual(getattr(msg, att), val)
 
-    def test_store_msg(self):
-        msg = email.message_from_string(good1, _class=Message)
-        msg.id = "Test"
+#     def test_store_msg(self):
+#         msg = email.message_from_string(good1, _class=Message)
+#         msg.id = "Test"
 
-        saved = self.db.store
-        self.done = False
-        try:
-            self.db.store = self._fake_store
-            self.db.store_msg(msg)
-        finally:
-            self.db.store = saved
-        self.assertEqual(self.done, True)
-        correct = [(att, getattr(msg, att))
-                   for att in msg.stored_attributes]
-        db_version = dict(self.db.db[msg.id])
-        correct_version = dict(correct)
-        correct_version["date_modified"], time.time()
-        self.assertEqual(db_version, correct_version)
+#         saved = self.db.store
+#         self.done = False
+#         try:
+#             self.db.store = self._fake_store
+#             self.db.store_msg(msg)
+#         finally:
+#             self.db.store = saved
+#         self.assertEqual(self.done, True)
+#         correct = [(att, getattr(msg, att))
+#                    for att in msg.stored_attributes]
+#         db_version = dict(self.db.db[msg.id])
+#         correct_version = dict(correct)
+#         correct_version["date_modified"], time.time()
+#         self.assertEqual(db_version, correct_version)
 
-    def _fake_store(self):
-        self.done = True
+#     def _fake_store(self):
+#         self.done = True
 
-    def test_remove_msg(self):
-        msg = email.message_from_string(good1, _class=Message)
-        msg.id = "Test"
-        self.db.db[msg.id] = "test"
-        saved = self.db.store
-        self.done = False
-        try:
-            self.db.store = self._fake_store
-            self.db.remove_msg(msg)
-        finally:
-            self.db.store = saved
-        self.assertEqual(self.done, True)
-        self.assertRaises(KeyError, self.db.db.__getitem__, msg.id)
+#     def test_remove_msg(self):
+#         msg = email.message_from_string(good1, _class=Message)
+#         msg.id = "Test"
+#         self.db.db[msg.id] = "test"
+#         saved = self.db.store
+#         self.done = False
+#         try:
+#             self.db.store = self._fake_store
+#             self.db.remove_msg(msg)
+#         finally:
+#             self.db.store = saved
+#         self.assertEqual(self.done, True)
+#         self.assertRaises(KeyError, self.db.db.__getitem__, msg.id)
 
-    def test_load(self):
-        # Create a db to try and load.
-        data = {"1": ('a', 'b', 'c'),
-                "2": ('d', 'e', 'f'),
-                "3": "test"}
-        for k, v in list(data.items()):
-            self.db.db[k] = v
-        self.db.store()
-        fn = self.db.db_name
-        self.db.close()
-        db2 = self.klass(fn, self.mode)
-        try:
-            self.assertEqual(len(list(db2.db.keys())), len(list(data.keys())))
-            for k, v in list(data.items()):
-                self.assertEqual(db2.db[k], v)
-        finally:
-            db2.close()
+#     def test_load(self):
+#         # Create a db to try and load.
+#         data = {"1": ('a', 'b', 'c'),
+#                 "2": ('d', 'e', 'f'),
+#                 "3": "test"}
+#         for k, v in list(data.items()):
+#             self.db.db[k] = v
+#         self.db.store()
+#         fn = self.db.db_name
+#         self.db.close()
+#         db2 = self.klass(fn, self.mode)
+#         try:
+#             self.assertEqual(len(list(db2.db.keys())), len(list(data.keys())))
+#             for k, v in list(data.items()):
+#                 self.assertEqual(db2.db[k], v)
+#         finally:
+#             db2.close()
 
-    def test_load_new(self):
-        # Load from a non-existing db (i.e. create new).
-        self.assertEqual(list(self.db.db.keys()), [])
-
-
-class MessageInfoPickleTest(MessageInfoBaseTest):
-    def setUp(self):
-        self.mode = 1
-        self.klass = MessageInfoPickle
-        MessageInfoBaseTest.setUp(self)
-
-    # def tearDown(self):
-    #     try:
-    #         os.remove(TEMP_PICKLE_NAME)
-    #     except OSError:
-    #         pass
-
-    def store(self):
-        if self.db is not None:
-            self.db.sync()
+#     def test_load_new(self):
+#         # Load from a non-existing db (i.e. create new).
+#         self.assertEqual(list(self.db.db.keys()), [])
 
 
-class MessageInfoDBTest(MessageInfoBaseTest):
-    def setUp(self):
-        self.mode = 'c'
-        self.klass = MessageInfoDB
-        MessageInfoBaseTest.setUp(self)
+# class MessageInfoPickleTest(MessageInfoBaseTest):
+#     def setUp(self):
+#         self.mode = 1
+#         self.klass = MessageInfoPickle
+#         MessageInfoBaseTest.setUp(self)
 
-    def tearDown(self):
-        self.db.close()
-        # try:
-        #     # DBM module adds a .db suffix when opening a file.
-        #     os.remove(TEMP_DBM_NAME + '.db')
-        # except OSError:
-        #     pass
+#     # def tearDown(self):
+#     #     try:
+#     #         os.remove(TEMP_PICKLE_NAME)
+#     #     except OSError:
+#     #         pass
 
-    def store(self):
-        if self.db is not None:
-            self.db.sync()
+#     def store(self):
+#         if self.db is not None:
+#             self.db.sync()
 
-    def _fake_close(self):
-        self.done += 1
 
-    # TODO this should not be skipped
-    @unittest.skip
-    def test_close(self):
-        saved_db = self.db.db.close
-        saved_dbm = self.db.dbm.close
-        try:
-            self.done = 0
-            self.db.db.close = self._fake_close
-            self.db.dbm.close = self._fake_close
-            self.db.close()
-            self.assertEqual(self.done, 2)
-        finally:
-            # If we don't put these back (whatever happens), then
-            # the db isn't closed and can't be deleted in tearDown.
-            self.db.db.close = saved_db
-            self.db.dbm.close = saved_dbm
+# class MessageInfoDBTest(MessageInfoBaseTest):
+#     def setUp(self):
+#         self.mode = 'c'
+#         self.klass = MessageInfoDB
+#         MessageInfoBaseTest.setUp(self)
+
+#     def tearDown(self):
+#         self.db.close()
+#         # try:
+#         #     # DBM module adds a .db suffix when opening a file.
+#         #     os.remove(TEMP_DBM_NAME + '.db')
+#         # except OSError:
+#         #     pass
+
+#     def store(self):
+#         if self.db is not None:
+#             self.db.sync()
+
+#     def _fake_close(self):
+#         self.done += 1
+
+#     # TODO this should not be skipped
+#     @unittest.skip
+#     def test_close(self):
+#         saved_db = self.db.db.close
+#         saved_dbm = self.db.dbm.close
+#         try:
+#             self.done = 0
+#             self.db.db.close = self._fake_close
+#             self.db.dbm.close = self._fake_close
+#             self.db.close()
+#             self.assertEqual(self.done, 2)
+#         finally:
+#             # If we don't put these back (whatever happens), then
+#             # the db isn't closed and can't be deleted in tearDown.
+#             self.db.db.close = saved_db
+#             self.db.dbm.close = saved_dbm
 
 
 class UtilitiesTest(unittest.TestCase):
