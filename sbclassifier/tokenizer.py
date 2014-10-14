@@ -12,6 +12,9 @@ import email.message
 import email.header
 import email.utils
 import email.errors
+# Requires Python 3.3.
+import ipaddress
+import itertools
 import re
 import math
 import os
@@ -19,6 +22,8 @@ import binascii
 # import urllib.parse
 # import urllib.request
 
+from sbclassifier.dnsutils import dns_lookup
+from sbclassifier.dnsutils import reverse_dns_lookup
 from sbclassifier.mboxutils import get_message
 from sbclassifier.strippers import UUencodeStripper
 from sbclassifier.strippers import URLStripper
@@ -58,10 +63,6 @@ OCTET_PREFIX_SIZE = 5
 # skip_max_word_size option.  Normally they are skipped, but one common
 # spam technique spells words like 'V I A G RA'.
 X_SHORT_RUNS = False
-
-#: (EXPERIMENTAL) Generate IP address tokens from hostnames.  Requires PyDNS
-#: (http://pydns.sourceforge.net/).
-X_LOOKUP_IP = False
 
 # Tell SpamBayes where to cache IP address lookup information.
 # Only comes into play if lookup_ip is enabled. The default
@@ -149,8 +150,7 @@ X_MINE_NNTP_HEADERS = False
 # then you probably don't want to use 'to' or 'cc') Address headers will
 # be decoded, and will generate charset tokens as well as the real
 # address.  Others to consider: errors-to, ...
-ADDRESS_HEADERS = ("from", "to", "cc",
-                   "sender", "reply-to")
+ADDRESS_HEADERS = ("from", "to", "cc", "sender", "reply-to")
 
 # If legitimate mail contains things that look like text to the
 # tokenizer and turning turning off this option helps (perhaps binary
@@ -1130,7 +1130,7 @@ class Tokenizer:
         return get_message(obj)
 
     @convert_to_bytes
-    def tokenize(self, obj, basic_header_tokenize=BASIC_HEADER_TOKENIZE,
+    def __call__(self, obj, basic_header_tokenize=BASIC_HEADER_TOKENIZE,
                  basic_header_tokenize_only=BASIC_HEADER_TOKENIZE_ONLY):
         msg = self.get_message(obj)
         for tok in self.tokenize_headers(msg):
@@ -1579,27 +1579,52 @@ class Tokenizer:
 def mine_nntp(msg):
     nntp_headers = msg.get_all("nntp-posting-host", ())
     for address in nntp_headers:
-        if received_nntp_ip_re.match(address):
-            for clue in gen_dotted_quad_clues("nntp-host", [address]):
-                yield clue
-            names = cache.lookup(address)
-            if names:
-                yield 'nntp-host-ip:has-reverse'
-                yield 'nntp-host-name:%s' % names[0]
-                yield ('nntp-host-domain:%s' %
-                       '.'.join(names[0].split('.')[-2:]))
-        else:
-            # assume it's a hostname
-            name = address
-            yield 'nntp-host-name:%s' % name
-            yield ('nntp-host-domain:%s' %
-                   '.'.join(name.split('.')[-2:]))
-            addresses = cache.lookup(name)
-            if addresses:
-                for clue in gen_dotted_quad_clues("nntp-host-ip", addresses):
-                    yield clue
-                if cache.lookup(addresses[0], qType="PTR") == name:
-                    yield 'nntp-host-ip:has-reverse'
+        # Determine if the address is an IP address or a host name.
+        try:
+            address = ipaddress.ip_address(address)
+            # If we have reached this point, then we have an IP address.
+            return clues_from_ipaddress(address)
+        except ValueError:
+            # If we have reached this point, then we have a domain name.
+            return clues_from_domainname(address)
 
-global_tokenizer = Tokenizer()
-tokenize = global_tokenizer.tokenize
+
+def top_two(name):
+    """Returns the second-level and top-level domain names as a string.
+
+    For example::
+
+        >>> top_two('www.google.com')
+        'google.com'
+
+    """
+    return '.'.join(name.split('.')[-2:])
+
+
+def clues_from_ipaddress(address):
+    ip_clues = gen_dotted_quad_clues('nntp-host', address)
+    names = reverse_dns_lookup(address)
+    host_clues = []
+    if names:
+        host_clues = ['nntp-host-ip:has-reverse',
+                      'nntp-host-name:{}'.format(names[0]),
+                      'nntp-host-domain:{}'.format(top_two(names[0]))]
+    return itertools.chain(ip_clues, host_clues)
+
+
+def clues_from_domainname(name):
+    host_clues = ['nntp-host-name:{}'.format(name),
+                  'nntp-host-domain:{}'.format(top_two(name))]
+    addresses = dns_lookup(name)
+    ip_clues = []
+    if addresses:
+        # For the sake of brevity, rename this function.
+        chain = itertools.chain.from_iterable
+        ip_clues = chain(gen_dotted_quad_clues('nntp-host-ip', address)
+                         for address in addresses)
+        if reverse_dns_lookup(addresses[0], qType='PTR') == name:
+            ip_clues.append('nntp-host-ip:has-reverse')
+    return itertools.chain(host_clues, ip_clues)
+
+
+tokenize = Tokenizer()
