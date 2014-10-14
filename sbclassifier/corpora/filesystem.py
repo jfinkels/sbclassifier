@@ -180,11 +180,12 @@ class ExpiryFileCorpus(FileCorpus):
         for key in list(self.keys()):
             msg = self[key]
             timestamp = msg.createTimestamp()
-            if timestamp + self.expireBefore < time.time():
+            end_time = timestamp + self.expireBefore
+            if end_time < time.time():
                 logging.debug('message %s has expired', msg.id())
                 self.remove_message(msg, do_training=False)
-            elif timestamp + self.expireBefore < self.expiry_due:
-                self.expiry_due = timestamp + self.expireBefore
+            elif end_time < self.expiry_due:
+                self.expiry_due = end_time
 
 
 # class FileMessage(object):
