@@ -60,8 +60,7 @@ class Trainer(object):
         """
         logging.debug('training with %s', message.key())
         self.classifier.learn(tokenize(message), self.is_spam)
-        message.setId(message.key())
-        message.RememberTrained(self.is_spam)
+        message.remember_trained(self.is_spam)
 
     def untrain(self, sender, message):
         """Untrain the database with the specified message.
@@ -76,7 +75,7 @@ class Trainer(object):
         self.classifier.unlearn(tokenize(message), self.is_spam)
         # can raise ValueError if database is fouled.  If this is the case,
         # then retraining is the only recovery option.
-        message.RememberTrained(None)
+        message.remember_trained(None)
 
     # def train_corpus(self, corpus):
     #     """Train all the messages in the specified corpus."""
