@@ -73,7 +73,7 @@ class Trainer(object):
 
         """
         logging.debug('untraining with %s', message.key())
-        self.classifier.unlearn(message.tokenize(), self.is_spam)
+        self.classifier.unlearn(tokenize(message), self.is_spam)
         # can raise ValueError if database is fouled.  If this is the case,
         # then retraining is the only recovery option.
         message.RememberTrained(None)
